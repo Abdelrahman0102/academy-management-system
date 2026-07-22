@@ -1,10 +1,15 @@
-// text_styles.dart
 import 'package:flutter/material.dart';
 
 class AppTextStyles {
   AppTextStyles._();
 
   static const String fontFamily = 'Cairo';
+
+  static const Color darkText = Color(0xffF8FAFC);
+  static const Color darkGrey = Color(0xff94A3B8);
+
+  static const Color lightText = Color(0xff0F172A);
+  static const Color lightGrey = Color(0xff64748B);
 
   static const TextStyle headlineLarge = TextStyle(
     fontFamily: fontFamily,
