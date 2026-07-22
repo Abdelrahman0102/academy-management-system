@@ -48,7 +48,7 @@ class _PlayerDetailsScreenState extends State<PlayerDetailsScreen>
   @override
   void initState() {
     super.initState();
-    _player = _loadDummyPlayer(widget.playerId);
+   // _player = _loadDummyPlayer(widget.playerId);
 
     _fadeController = AnimationController(
       vsync: this,
@@ -69,27 +69,27 @@ class _PlayerDetailsScreenState extends State<PlayerDetailsScreen>
 
   /// Dummy player data standing in for the selected player until
   /// `PlayersScreen` passes real data through navigation.
-  _PlayerDetails _loadDummyPlayer(String? playerId) {
-    return const _PlayerDetails(
-      id: 'p1',
-      name: 'Youssef Hassan',
-      age: 13,
-      group: 'U14 - Falcons',
-      schedule: 'Sat / Mon / Wed - Morning',
-      status: _PlayerStatus.active,
-      photoUrl: null,
-      registrationDate: '02 Sep 2024',
-      parentName: 'Hassan Ibrahim',
-      parentPhone: '01012345678',
-      coachName: 'Coach Ahmed',
-      attendance: 0.92,
-      sessionsAttended: 46,
-      sessionsMissed: 4,
-      totalEvaluations: 6,
-      evaluationRating: 4.8,
-      latestCoachNote: 'Excellent discipline and improving every week.',
-    );
-  }
+  // _PlayerDetails _loadDummyPlayer(String? playerId) {
+  //   return const _PlayerDetails(
+  //     id: 'p1',
+  //     name: 'Youssef Hassan',
+  //     age: 13,
+  //     group: 'U14 - Falcons',
+  //     schedule: 'Sat / Mon / Wed - Morning',
+  //     status: _PlayerStatus.active,
+  //     photoUrl: null,
+  //     registrationDate: '02 Sep 2024',
+  //     parentName: 'Hassan Ibrahim',
+  //     parentPhone: '01012345678',
+  //     coachName: 'Coach Ahmed',
+  //     attendance: 0.92,
+  //     sessionsAttended: 46,
+  //     sessionsMissed: 4,
+  //     totalEvaluations: 6,
+  //     evaluationRating: 4.8,
+  //     latestCoachNote: 'Excellent discipline and improving every week.',
+  //   );
+  // }
 
   Future<void> _openEditPlayer() async {
     await Navigator.push<void>(

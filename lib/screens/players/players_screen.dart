@@ -4,48 +4,50 @@ import 'package:flutter/material.dart';
 import 'add_player_screen.dart';
 import 'edit_player_screen.dart';
 import 'player_details_screen.dart';
+import '/models/player.dart';
+import '/repositories/player_repository.dart';
 
 /// Dummy player model used until the screen is wired to the MySQL-backed
 /// API. Field shape is kept close to what that API is expected to return
 /// so swapping the data source later only touches [_PlayersScreenState._loadPlayers].
-class Player {
-  const Player({
-    required this.id,
-    required this.name,
-    required this.code,
-    required this.phone,
-    required this.group,
-    required this.age,
-    required this.attendance,
-    required this.status,
-  });
+// class Player {
+//   const Player({
+//     required this.id,
+//     required this.name,
+//     required this.code,
+//     required this.phone,
+//     required this.group,
+//     required this.age,
+//     required this.attendance,
+//     required this.status,
+//   });
 
-  final String id;
-  final String name;
-  final String code;
-  final String phone;
-  final String group;
-  final int age;
-  final double attendance;
-  final PlayerStatus status;
+//   final String id;
+//   final String name;
+//   final String code;
+//   final String phone;
+//   final String group;
+//   final int age;
+//   final double attendance;
+//   final PlayerStatus status;
+//
+//   String get initial => name.isNotEmpty ? name[0].toUpperCase() : '?';
+// }
 
-  String get initial => name.isNotEmpty ? name[0].toUpperCase() : '?';
-}
+//enum PlayerStatus { active, inactive, pending }
 
-enum PlayerStatus { active, inactive, pending }
-
-extension PlayerStatusLabel on PlayerStatus {
-  String get label {
-    switch (this) {
-      case PlayerStatus.active:
-        return 'Active';
-      case PlayerStatus.inactive:
-        return 'Inactive';
-      case PlayerStatus.pending:
-        return 'Pending';
-    }
-  }
-}
+// extension PlayerStatusLabel on PlayerStatus {
+//   String get label {
+//     switch (this) {
+//       case PlayerStatus.active:
+//         return 'Active';
+//       case PlayerStatus.inactive:
+//         return 'Inactive';
+//       case PlayerStatus.pending:
+//         return 'Pending';
+//     }
+//   }
+// }
 
 /// Players list screen for the Sports Academy Management System.
 ///
@@ -73,9 +75,15 @@ class _PlayersScreenState extends State<PlayersScreen>
   late final AnimationController _listFadeController;
   late final Animation<double> _listFadeAnimation;
 
-  List<Player> _allPlayers = <Player>[];
-  List<Player> _filteredPlayers = <Player>[];
+  // List<Player> _allPlayers = <Player>[];
+  // List<Player> _filteredPlayers = <Player>[];
+  final PlayerRepository _repository = PlayerRepository();
+
+  List<PlayerModel> _allPlayers = [];
+  List<PlayerModel> _filteredPlayers = [];
   String? _selectedPlayerId;
+
+  String? playermodel;
 
   @override
   void initState() {
@@ -90,8 +98,7 @@ class _PlayersScreenState extends State<PlayersScreen>
       curve: Curves.easeOut,
     );
 
-    _allPlayers = _loadPlayers();
-    _filteredPlayers = _allPlayers;
+    _loadPlayers();
     _listFadeController.forward();
   }
 
@@ -105,59 +112,17 @@ class _PlayersScreenState extends State<PlayersScreen>
   /// TODO(api): Replace with a call to the players endpoint backed by
   /// MySQL. Keep the return type as `List<Player>` so the rest of the
   /// screen needs no changes when the real data source lands.
-  List<Player> _loadPlayers() {
-    return const <Player>[
-      Player(
-        id: 'p1',
-        name: 'Youssef Hassan',
-        code: 'PLY-1042',
-        phone: '01012345678',
-        group: 'U14 - Falcons',
-        age: 13,
-        attendance: 0.94,
-        status: PlayerStatus.active,
-      ),
-      Player(
-        id: 'p2',
-        name: 'Karim Mostafa',
-        code: 'PLY-1043',
-        phone: '01098765432',
-        group: 'U16 - Eagles',
-        age: 15,
-        attendance: 0.81,
-        status: PlayerStatus.active,
-      ),
-      Player(
-        id: 'p3',
-        name: 'Omar Adel',
-        code: 'PLY-1044',
-        phone: '01122334455',
-        group: 'U12 - Cubs',
-        age: 11,
-        attendance: 0.67,
-        status: PlayerStatus.pending,
-      ),
-      Player(
-        id: 'p4',
-        name: 'Ziad Tarek',
-        code: 'PLY-1045',
-        phone: '01234567890',
-        group: 'U14 - Falcons',
-        age: 13,
-        attendance: 0.5,
-        status: PlayerStatus.inactive,
-      ),
-      Player(
-        id: 'p5',
-        name: 'Mahmoud Nabil',
-        code: 'PLY-1046',
-        phone: '01555667788',
-        group: 'U16 - Eagles',
-        age: 16,
-        attendance: 0.88,
-        status: PlayerStatus.active,
-      ),
-    ];
+  Future<void> _loadPlayers() async {
+    try {
+      final players = await _repository.getPlayers();
+
+      setState(() {
+        _allPlayers = players;
+        _filteredPlayers = players;
+      });
+    } catch (e) {
+      debugPrint(e.toString());
+    }
   }
 
   void _onSearchChanged(String query) {
@@ -165,20 +130,20 @@ class _PlayersScreenState extends State<PlayersScreen>
     setState(() {
       _filteredPlayers = normalized.isEmpty
           ? _allPlayers
-          : _allPlayers.where((Player player) {
+          : _allPlayers.where((PlayerModel player) {
         return player.name.toLowerCase().contains(normalized) ||
             player.code.toLowerCase().contains(normalized) ||
             player.phone.contains(normalized);
       }).toList();
 
       if (_selectedPlayerId != null &&
-          !_filteredPlayers.any((Player p) => p.id == _selectedPlayerId)) {
+          !_filteredPlayers.any((PlayerModel p) => p.id == _selectedPlayerId)) {
         _selectedPlayerId = null;
       }
     });
   }
 
-  void _onPlayerTap(Player player) {
+  void _onPlayerTap(PlayerModel player) {
     setState(() {
       _selectedPlayerId = _selectedPlayerId == player.id ? null : player.id;
     });
@@ -186,9 +151,9 @@ class _PlayersScreenState extends State<PlayersScreen>
 
   void _clearSelection() => setState(() => _selectedPlayerId = null);
 
-  Player? get _selectedPlayer {
+  PlayerModel? get _selectedPlayer {
     if (_selectedPlayerId == null) return null;
-    for (final Player player in _allPlayers) {
+    for (final PlayerModel player in _allPlayers) {
       if (player.id == _selectedPlayerId) return player;
     }
     return null;
@@ -201,24 +166,28 @@ class _PlayersScreenState extends State<PlayersScreen>
     );
   }
 
-  Future<void> _openPlayerDetails(Player player) async {
+  Future<void> _openPlayerDetails(PlayerModel player) async {
     await Navigator.push<void>(
       context,
       MaterialPageRoute<void>(
         // TODO(api): pass the selected player once PlayerDetailsScreen
         // accepts a Player / playerId argument.
-        builder: (_) => const PlayerDetailsScreen(),
+        builder: (_) => PlayerDetailsScreen(
+          playerId: playermodel,
+        ),
       ),
     );
   }
 
-  Future<void> _openEditPlayer(Player player) async {
+  Future<void> _openEditPlayer(PlayerModel player) async {
     await Navigator.push<void>(
       context,
       MaterialPageRoute<void>(
         // TODO(api): pass the selected player once EditPlayerScreen
         // accepts a Player / playerId argument.
-        builder: (_) => const EditPlayerScreen(),
+        builder: (_) => EditPlayerScreen(
+          playerId: playermodel,
+        ),
       ),
     );
   }
@@ -272,7 +241,7 @@ class _PlayersScreenState extends State<PlayersScreen>
                   ),
                   itemCount: _filteredPlayers.length,
                   itemBuilder: (BuildContext context, int index) {
-                    final Player player = _filteredPlayers[index];
+                    final PlayerModel player = _filteredPlayers[index];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _PlayerCard(
@@ -290,8 +259,8 @@ class _PlayersScreenState extends State<PlayersScreen>
       ),
       bottomSheet: _PlayerActionBar(
         player: _selectedPlayer,
-        onDetails: (Player player) => _openPlayerDetails(player),
-        onEdit: (Player player) => _openEditPlayer(player),
+        onDetails: (PlayerModel player) => _openPlayerDetails(player),
+        onEdit: (PlayerModel player) => _openEditPlayer(player),
         onDismiss: _clearSelection,
       ),
     );
@@ -368,7 +337,7 @@ class _PlayerCard extends StatelessWidget {
     required this.onTap,
   });
 
-  final Player player;
+  final PlayerModel player;
   final bool isSelected;
   final VoidCallback onTap;
 
@@ -501,7 +470,7 @@ class _PlayerCard extends StatelessWidget {
 class _PlayerAvatar extends StatelessWidget {
   const _PlayerAvatar({required this.player, required this.isSelected});
 
-  final Player player;
+  final PlayerModel player;
   final bool isSelected;
 
   @override
@@ -587,16 +556,16 @@ class _PlayerActionBar extends StatelessWidget {
     required this.onDismiss,
   });
 
-  final Player? player;
-  final ValueChanged<Player> onDetails;
-  final ValueChanged<Player> onEdit;
+  final PlayerModel? player;
+  final ValueChanged<PlayerModel> onDetails;
+  final ValueChanged<PlayerModel> onEdit;
   final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme colorScheme = theme.colorScheme;
-    final Player? current = player;
+    final PlayerModel? current = player;
 
     return AnimatedSlide(
       duration: const Duration(milliseconds: 260),
