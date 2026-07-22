@@ -1,42 +1,21 @@
-// edit_player_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Training groups available for selection.
-///
-/// TODO(api): replace with groups fetched from `GET /groups` once the
-/// backend endpoint is wired in.
+import '/models/player.dart';
+import '/models/group.dart';
+import '/repositories/player_repository.dart';
 
-
-/// Training schedules available for selection.
-///
-/// TODO(api): replace with schedules fetched from the backend once the
-/// relevant endpoint is wired in.
-
-
-/// Edit Player screen for the Sports Academy Management System.
-///
-/// Opened from `PlayersScreen` after a player is selected and the Edit
-/// action is pressed. All fields arrive pre-filled with the selected
-/// player's current data so the coach edits existing values rather than
-/// entering new ones.
-///
-/// TODO(api): this screen currently seeds its form with dummy data via
-/// [_loadDummyPlayer]. Once `PlayersScreen` passes the selected player
-/// (or its id) through navigation, replace that seed with the real
-/// values / a `GET /players/{id}` fetch, and wire [_submit] to
-/// `PUT /players/{id}`.
-///
-/// Styling comes entirely from `Theme.of(context)`; no colors or fonts
-/// are hardcoded.
 class EditPlayerScreen extends StatefulWidget {
-  const EditPlayerScreen({super.key, this.playerId});
+  const EditPlayerScreen({
+    super.key,
+    required this.player,
+    required this.repository,
+  });
 
   static const String routeName = '/players/edit';
 
-  /// Id of the player being edited. Optional for now — wire this in
-  /// once `PlayersScreen` passes the selected player through.
-  final String? playerId;
+  final PlayerModel player;
+  final PlayerRepository repository;
 
   @override
   State<EditPlayerScreen> createState() => _EditPlayerScreenState();
@@ -45,35 +24,54 @@ class EditPlayerScreen extends StatefulWidget {
 class _EditPlayerScreenState extends State<EditPlayerScreen>
     with SingleTickerProviderStateMixin {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final TextEditingController _groupController = TextEditingController();
-  final TextEditingController _scheduleController = TextEditingController();
 
+  late final TextEditingController _codeController;
   late final TextEditingController _nameController;
-  late final TextEditingController _ageController;
+  late final TextEditingController _birthDateController;
+  late final TextEditingController _medicalNotesController;
   late final TextEditingController _parentNameController;
   late final TextEditingController _parentPhoneController;
+  late final TextEditingController _scheduleController;
 
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
 
-  String? _selectedGroup;
-  String? _selectedSchedule;
+  List<TrainingGroupModel> _groups = <TrainingGroupModel>[];
+  int? _selectedGroupId;
+  late String _selectedGender;
+  late String _selectedStatus;
+  late String _selectedRelationship;
   bool _isSaving = false;
+  bool _isLoadingGroups = true;
 
   @override
   void initState() {
     super.initState();
 
-    final _DummyPlayer player = _loadDummyPlayer(widget.playerId);
+    final PlayerModel player = widget.player;
+
+    _codeController = TextEditingController(text: player.code);
     _nameController = TextEditingController(text: player.name);
-    _ageController = TextEditingController(text: player.age.toString());
-    _parentNameController = TextEditingController(text: player.parentName);
+    _birthDateController = TextEditingController(text: player.birthDate);
+    _medicalNotesController =
+        TextEditingController(text: player.medicalNotes ?? '');
+    _parentNameController =
+        TextEditingController(text: player.parentName ?? '');
     _parentPhoneController =
-        TextEditingController(text: player.parentPhone);
+        TextEditingController(text: player.parentPhone ?? '');
+    _scheduleController = TextEditingController(text: player.schedule ?? '-');
 
-    _selectedGroup = player.group;
-    _selectedSchedule = player.schedule;
-
+    _selectedGroupId = player.groupId;
+    _selectedGender = player.gender == 'Female' ? 'Female' : 'Male';
+    _selectedStatus = <String>{'active', 'inactive', 'injured'}
+        .contains(player.status.toLowerCase())
+        ? player.status.toLowerCase()
+        : 'inactive';
+    _selectedRelationship =
+    <String>{'Father', 'Mother', 'Guardian'}
+        .contains(player.parentRelationship)
+        ? player.parentRelationship!
+        : 'Father';
 
     _fadeController = AnimationController(
       vsync: this,
@@ -84,31 +82,49 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
       curve: Curves.easeOut,
     );
     _fadeController.forward();
+
+    _loadGroups();
   }
 
   @override
   void dispose() {
+    _codeController.dispose();
     _nameController.dispose();
-    _ageController.dispose();
+    _birthDateController.dispose();
+    _medicalNotesController.dispose();
     _parentNameController.dispose();
     _parentPhoneController.dispose();
+    _scheduleController.dispose();
     _fadeController.dispose();
     super.dispose();
   }
 
-  /// Dummy player data standing in for the selected player until
-  /// `PlayersScreen` passes real data through navigation.
-  _DummyPlayer _loadDummyPlayer(String? playerId) {
-    return const _DummyPlayer(
-      id: 'p1',
-      name: 'Youssef Hassan',
-      age: 13,
-      group: 'U14 - Falcons',
-      schedule: 'Sat / Mon / Wed - Morning',
-      parentName: 'Hassan Ibrahim',
-      parentPhone: '01012345678',
-      photoUrl: null,
-    );
+  Future<void> _loadGroups() async {
+    try {
+      final List<TrainingGroupModel> groups =
+      await widget.repository.getGroups();
+
+      if (!mounted) return;
+
+      TrainingGroupModel? selected;
+      for (final TrainingGroupModel group in groups) {
+        if (group.id == _selectedGroupId) {
+          selected = group;
+          break;
+        }
+      }
+
+      setState(() {
+        _groups = groups;
+        _isLoadingGroups = false;
+        _scheduleController.text =
+            selected?.schedule ?? widget.player.schedule ?? '-';
+      });
+    } on PlayerRepositoryException catch (error) {
+      if (!mounted) return;
+      setState(() => _isLoadingGroups = false);
+      _showError(error.message);
+    }
   }
 
   String? _validateRequired(String? value, String fieldLabel) {
@@ -118,36 +134,51 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
     return null;
   }
 
-  String? _validateAge(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Age is required';
-    }
-    final int? age = int.tryParse(value.trim());
-    if (age == null) {
-      return 'Enter a valid age';
-    }
-    if (age < 3 || age > 25) {
-      return 'Age must be between 3 and 25';
-    }
-    return null;
-  }
-
   String? _validatePhone(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Parent phone number is required';
     }
-    final String digitsOnly = value.trim();
-    if (digitsOnly.length < 10 || digitsOnly.length > 15) {
+
+    if (value.trim().length < 10 || value.trim().length > 15) {
       return 'Enter a valid phone number';
     }
+
     return null;
   }
 
-  String? _validateDropdown(String? value, String fieldLabel) {
-    if (value == null || value.isEmpty) {
-      return 'Please select a $fieldLabel';
+  Future<void> _pickBirthDate() async {
+    final DateTime now = DateTime.now();
+    final DateTime initial = DateTime.tryParse(_birthDateController.text) ??
+        DateTime(now.year - 10);
+    final DateTime? selected = await showDatePicker(
+      context: context,
+      initialDate: initial.isAfter(now) ? now : initial,
+      firstDate: DateTime(now.year - 30),
+      lastDate: now,
+    );
+
+    if (selected == null) return;
+
+    _birthDateController.text =
+    '${selected.year.toString().padLeft(4, '0')}-'
+        '${selected.month.toString().padLeft(2, '0')}-'
+        '${selected.day.toString().padLeft(2, '0')}';
+  }
+
+  void _onGroupChanged(int? groupId) {
+    TrainingGroupModel? selected;
+
+    for (final TrainingGroupModel group in _groups) {
+      if (group.id == groupId) {
+        selected = group;
+        break;
+      }
     }
-    return null;
+
+    setState(() {
+      _selectedGroupId = groupId;
+      _scheduleController.text = selected?.schedule ?? '-';
+    });
   }
 
   Future<void> _submit() async {
@@ -156,22 +187,41 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
 
     setState(() => _isSaving = true);
 
-    // TODO(api): PUT /players/{id}
-    // final payload = {
-    //   'name': _nameController.text.trim(),
-    //   'age': int.parse(_ageController.text.trim()),
-    //   'group': _selectedGroup,
-    //   'schedule': _selectedSchedule,
-    //   'parent_name': _parentNameController.text.trim(),
-    //   'parent_phone': _parentPhoneController.text.trim(),
-    // };
-    // await playersRepository.updatePlayer(widget.playerId, payload);
+    try {
+      final PlayerModel updated = await widget.repository.updatePlayer(
+        widget.player.id,
+        PlayerInput(
+          code: _codeController.text,
+          name: _nameController.text,
+          birthDate: _birthDateController.text,
+          gender: _selectedGender,
+          status: _selectedStatus,
+          groupId: _selectedGroupId,
+          parentName: _parentNameController.text,
+          parentPhone: _parentPhoneController.text,
+          relationship: _selectedRelationship,
+          photo: widget.player.photo,
+          medicalNotes: _medicalNotesController.text,
+        ),
+      );
 
-    await Future<void>.delayed(const Duration(milliseconds: 900));
+      if (!mounted) return;
+      Navigator.pop(context, updated);
+    } on PlayerRepositoryException catch (error) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      _showError(error.message);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      _showError(error.toString());
+    }
+  }
 
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-    Navigator.pop(context);
+  void _showError(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -201,8 +251,7 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
                 Expanded(
                   child: Center(
                     child: ConstrainedBox(
-                      constraints:
-                      BoxConstraints(maxWidth: maxContentWidth),
+                      constraints: BoxConstraints(maxWidth: maxContentWidth),
                       child: ListView(
                         padding: EdgeInsets.fromLTRB(
                           horizontalPadding,
@@ -212,11 +261,9 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
                         ),
                         children: <Widget>[
                           _PlayerPhotoSection(
-                            heroTag:
-                            'player_avatar_${widget.playerId ?? 'p1'}',
-                            initial: _nameController.text.isNotEmpty
-                                ? _nameController.text[0].toUpperCase()
-                                : '?',
+                            heroTag: 'player_avatar_${widget.player.id}',
+                            initial: widget.player.initial,
+                            photoUrl: widget.player.photo,
                           ),
                           const SizedBox(height: 20),
                           _SectionCard(
@@ -224,89 +271,165 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
                             title: 'Player Information',
                             children: <Widget>[
                               _LabeledField(
+                                label: 'Player Code',
+                                isRequired: true,
+                                child: TextFormField(
+                                  controller: _codeController,
+                                  textCapitalization:
+                                  TextCapitalization.characters,
+                                  textInputAction: TextInputAction.next,
+                                  inputFormatters: <TextInputFormatter>[
+                                    LengthLimitingTextInputFormatter(30),
+                                  ],
+                                  decoration: const InputDecoration(
+                                    hintText: 'Enter unique player code',
+                                  ),
+                                  validator: (String? value) =>
+                                      _validateRequired(value, 'Player code'),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _LabeledField(
                                 label: 'Player Name',
                                 isRequired: true,
                                 child: TextFormField(
                                   controller: _nameController,
-                                  textCapitalization:
-                                  TextCapitalization.words,
+                                  textCapitalization: TextCapitalization.words,
                                   textInputAction: TextInputAction.next,
                                   decoration: const InputDecoration(
                                     hintText: "Enter player's full name",
                                   ),
                                   validator: (String? value) =>
-                                      _validateRequired(
-                                          value, 'Player name'),
+                                      _validateRequired(value, 'Player name'),
                                 ),
                               ),
                               const SizedBox(height: 16),
                               _LabeledField(
-                                label: 'Age',
+                                label: 'Birth Date',
                                 isRequired: true,
                                 child: TextFormField(
-                                  controller: _ageController,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  inputFormatters: <TextInputFormatter>[
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    LengthLimitingTextInputFormatter(2),
-                                  ],
+                                  controller: _birthDateController,
+                                  readOnly: true,
+                                  onTap: _pickBirthDate,
                                   decoration: const InputDecoration(
-                                    hintText: 'Enter age',
+                                    hintText: 'YYYY-MM-DD',
+                                    suffixIcon:
+                                    Icon(Icons.calendar_month_rounded),
                                   ),
-                                  validator: _validateAge,
+                                  validator: (String? value) =>
+                                      _validateRequired(value, 'Birth date'),
                                 ),
                               ),
                               const SizedBox(height: 16),
                               _LabeledField(
-                                label: 'Age',
+                                label: 'Gender',
                                 isRequired: true,
-                                child: TextFormField(
-                                  controller: _ageController,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  inputFormatters: <TextInputFormatter>[
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    LengthLimitingTextInputFormatter(2),
+                                child: DropdownButtonFormField<String>(
+                                  value: _selectedGender,
+                                  decoration: const InputDecoration(),
+                                  items: const <DropdownMenuItem<String>>[
+                                    DropdownMenuItem(
+                                      value: 'Male',
+                                      child: Text('Male'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Female',
+                                      child: Text('Female'),
+                                    ),
                                   ],
-                                  decoration: const InputDecoration(
-                                    hintText: 'Enter age',
-                                  ),
-                                  validator: _validateAge,
+                                  onChanged: (String? value) {
+                                    if (value != null) {
+                                      setState(() => _selectedGender = value);
+                                    }
+                                  },
                                 ),
                               ),
                               const SizedBox(height: 16),
-
+                              _LabeledField(
+                                label: 'Status',
+                                isRequired: true,
+                                child: DropdownButtonFormField<String>(
+                                  value: _selectedStatus,
+                                  decoration: const InputDecoration(),
+                                  items: const <DropdownMenuItem<String>>[
+                                    DropdownMenuItem(
+                                      value: 'active',
+                                      child: Text('Active'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'inactive',
+                                      child: Text('Inactive'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'injured',
+                                      child: Text('Injured'),
+                                    ),
+                                  ],
+                                  onChanged: (String? value) {
+                                    if (value != null) {
+                                      setState(() => _selectedStatus = value);
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _LabeledField(
+                                label: 'Medical Notes',
+                                child: TextFormField(
+                                  controller: _medicalNotesController,
+                                  minLines: 2,
+                                  maxLines: 4,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Optional medical notes',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
                               _LabeledField(
                                 label: 'Training Group',
                                 isRequired: true,
-                                child: TextFormField(
-                                  controller: _groupController,
-                                  textInputAction: TextInputAction.next,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Enter training group',
+                                child: DropdownButtonFormField<int>(
+                                  value: _groups.any(
+                                        (TrainingGroupModel group) =>
+                                    group.id == _selectedGroupId,
+                                  )
+                                      ? _selectedGroupId
+                                      : null,
+                                  decoration: InputDecoration(
+                                    hintText: _isLoadingGroups
+                                        ? 'Loading groups...'
+                                        : 'Select training group',
                                   ),
-                                  validator: (value) =>
-                                      _validateRequired(value, 'Training Group'),
+                                  items: _groups
+                                      .map(
+                                        (TrainingGroupModel group) =>
+                                        DropdownMenuItem<int>(
+                                          value: group.id,
+                                          child: Text(group.name),
+                                        ),
+                                  )
+                                      .toList(growable: false),
+                                  onChanged:
+                                  _isLoadingGroups ? null : _onGroupChanged,
+                                  validator: (int? value) => value == null
+                                      ? 'Please select a training group'
+                                      : null,
                                 ),
                               ),
-
                               const SizedBox(height: 16),
-
                               _LabeledField(
                                 label: 'Training Schedule',
-                                isRequired: true,
                                 child: TextFormField(
                                   controller: _scheduleController,
-                                  textInputAction: TextInputAction.next,
+                                  readOnly: true,
                                   decoration: const InputDecoration(
-                                    hintText: 'Enter training schedule',
+                                    hintText: 'Schedule comes from the group',
                                   ),
-                                  validator: (value) =>
-                                      _validateRequired(value, 'Training Schedule'),
                                 ),
                               ),
-                              const SizedBox(height: 16),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
                           _SectionCard(
                             icon: Icons.family_restroom_rounded,
                             title: 'Parent Information',
@@ -316,15 +439,13 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
                                 isRequired: true,
                                 child: TextFormField(
                                   controller: _parentNameController,
-                                  textCapitalization:
-                                  TextCapitalization.words,
+                                  textCapitalization: TextCapitalization.words,
                                   textInputAction: TextInputAction.next,
                                   decoration: const InputDecoration(
                                     hintText: "Enter parent's full name",
                                   ),
                                   validator: (String? value) =>
-                                      _validateRequired(
-                                          value, 'Parent name'),
+                                      _validateRequired(value, 'Parent name'),
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -334,7 +455,7 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
                                 child: TextFormField(
                                   controller: _parentPhoneController,
                                   keyboardType: TextInputType.phone,
-                                  textInputAction: TextInputAction.done,
+                                  textInputAction: TextInputAction.next,
                                   inputFormatters: <TextInputFormatter>[
                                     FilteringTextInputFormatter.digitsOnly,
                                     LengthLimitingTextInputFormatter(15),
@@ -345,13 +466,43 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
                                   validator: _validatePhone,
                                 ),
                               ),
+                              const SizedBox(height: 16),
+                              _LabeledField(
+                                label: 'Relationship',
+                                isRequired: true,
+                                child: DropdownButtonFormField<String>(
+                                  value: _selectedRelationship,
+                                  decoration: const InputDecoration(),
+                                  items: const <DropdownMenuItem<String>>[
+                                    DropdownMenuItem(
+                                      value: 'Father',
+                                      child: Text('Father'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Mother',
+                                      child: Text('Mother'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Guardian',
+                                      child: Text('Guardian'),
+                                    ),
+                                  ],
+                                  onChanged: (String? value) {
+                                    if (value != null) {
+                                      setState(
+                                            () => _selectedRelationship = value,
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
                             ],
                           ),
                         ],
                       ),
-           ]),
+                    ),
                   ),
-      )),
+                ),
                 _EditPlayerBottomBar(
                   isLoading: _isSaving,
                   onPressed: _submit,
@@ -367,38 +518,6 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
   }
 }
 
-/// Minimal dummy player shape used only to seed the form until real
-/// player data is passed into this screen.
-class _DummyPlayer {
-  const _DummyPlayer({
-    required this.id,
-    required this.name,
-    required this.age,
-    required this.group,
-    required this.schedule,
-    required this.parentName,
-    required this.parentPhone,
-    required this.photoUrl,
-  });
-
-  final String id;
-  final String name;
-  final int age;
-  final String group;
-  final String schedule;
-  final String parentName;
-  final String parentPhone;
-  final String? photoUrl;
-}
-
-// ---------------------------------------------------------------------------
-// Photo section
-// ---------------------------------------------------------------------------
-
-/// Large circular avatar showing the player's current photo (or a
-/// placeholder initial), with a camera overlay and a Hero tag so it
-/// animates from the players list / details screen. UI only — no image
-/// picker is wired in.
 class _PlayerPhotoSection extends StatelessWidget {
   const _PlayerPhotoSection({
     required this.heroTag,
@@ -419,8 +538,6 @@ class _PlayerPhotoSection extends StatelessWidget {
       child: Column(
         children: <Widget>[
           GestureDetector(
-            // TODO(feature): open an image picker and upload the new
-            // photo once photo upload is implemented.
             onTap: () {},
             child: Stack(
               clipBehavior: Clip.none,
@@ -496,12 +613,6 @@ class _PlayerPhotoSection extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Section card
-// ---------------------------------------------------------------------------
-
-/// A rounded, softly-shadowed card wrapping one form section, with an
-/// icon + title header.
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.icon,
@@ -563,13 +674,6 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Labeled field
-// ---------------------------------------------------------------------------
-
-/// A field wrapper adding a small label above the input, with a
-/// required-field asterisk. Validation error text is rendered by the
-/// wrapped `TextFormField` / `DropdownButtonFormField` itself.
 class _LabeledField extends StatelessWidget {
   const _LabeledField({
     required this.label,
@@ -612,12 +716,6 @@ class _LabeledField extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Bottom action bar
-// ---------------------------------------------------------------------------
-
-/// Full-width, sticky "Save Changes" button with a loading state ready
-/// for the future PUT call.
 class _EditPlayerBottomBar extends StatelessWidget {
   const _EditPlayerBottomBar({
     required this.isLoading,

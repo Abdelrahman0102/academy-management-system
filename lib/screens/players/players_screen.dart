@@ -1,4 +1,3 @@
-// players_screen.dart
 import 'package:flutter/material.dart';
 
 import 'add_player_screen.dart';
@@ -7,63 +6,15 @@ import 'player_details_screen.dart';
 import '/models/player.dart';
 import '/repositories/player_repository.dart';
 
-/// Dummy player model used until the screen is wired to the MySQL-backed
-/// API. Field shape is kept close to what that API is expected to return
-/// so swapping the data source later only touches [_PlayersScreenState._loadPlayers].
-// class Player {
-//   const Player({
-//     required this.id,
-//     required this.name,
-//     required this.code,
-//     required this.phone,
-//     required this.group,
-//     required this.age,
-//     required this.attendance,
-//     required this.status,
-//   });
-
-//   final String id;
-//   final String name;
-//   final String code;
-//   final String phone;
-//   final String group;
-//   final int age;
-//   final double attendance;
-//   final PlayerStatus status;
-//
-//   String get initial => name.isNotEmpty ? name[0].toUpperCase() : '?';
-// }
-
-//enum PlayerStatus { active, inactive, pending }
-
-// extension PlayerStatusLabel on PlayerStatus {
-//   String get label {
-//     switch (this) {
-//       case PlayerStatus.active:
-//         return 'Active';
-//       case PlayerStatus.inactive:
-//         return 'Inactive';
-//       case PlayerStatus.pending:
-//         return 'Pending';
-//     }
-//   }
-// }
-
-/// Players list screen for the Sports Academy Management System.
-///
-/// UX: players are browsed and searched first; tapping a card selects it
-/// (single-selection only) and reveals a bottom action bar with
-/// "Player Details" and "Edit Player". Adding a player is always
-/// available via the app bar action / FAB and is never part of the
-/// selection-dependent bottom bar.
-///
-/// Styling comes entirely from `Theme.of(context)` — no hardcoded colors
-/// or fonts. Data is dummy for now; [_loadPlayers] is the single seam to
-/// replace with the real MySQL-backed API call.
 class PlayersScreen extends StatefulWidget {
-  const PlayersScreen({super.key});
+  const PlayersScreen({
+    super.key,
+    required this.repository,
+  });
 
   static const String routeName = '/players';
+
+  final PlayerRepository repository;
 
   @override
   State<PlayersScreen> createState() => _PlayersScreenState();
@@ -75,15 +26,12 @@ class _PlayersScreenState extends State<PlayersScreen>
   late final AnimationController _listFadeController;
   late final Animation<double> _listFadeAnimation;
 
-  // List<Player> _allPlayers = <Player>[];
-  // List<Player> _filteredPlayers = <Player>[];
-  final PlayerRepository _repository = PlayerRepository();
+  List<PlayerModel> _allPlayers = <PlayerModel>[];
+  List<PlayerModel> _filteredPlayers = <PlayerModel>[];
+  int? _selectedPlayerId;
+  bool _isLoading = true;
 
-  List<PlayerModel> _allPlayers = [];
-  List<PlayerModel> _filteredPlayers = [];
-  String? _selectedPlayerId;
-
-  String? playermodel;
+  PlayerRepository get _repository => widget.repository;
 
   @override
   void initState() {
@@ -99,7 +47,6 @@ class _PlayersScreenState extends State<PlayersScreen>
     );
 
     _loadPlayers();
-    _listFadeController.forward();
   }
 
   @override
@@ -109,35 +56,66 @@ class _PlayersScreenState extends State<PlayersScreen>
     super.dispose();
   }
 
-  /// TODO(api): Replace with a call to the players endpoint backed by
-  /// MySQL. Keep the return type as `List<Player>` so the rest of the
-  /// screen needs no changes when the real data source lands.
   Future<void> _loadPlayers() async {
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
+
     try {
-      final players = await _repository.getPlayers();
+      final List<PlayerModel> players = await _repository.getPlayers();
+
+      if (!mounted) return;
+
+      final String query = _searchController.text.trim().toLowerCase();
 
       setState(() {
         _allPlayers = players;
-        _filteredPlayers = players;
+        _filteredPlayers = _filterPlayers(players, query);
+        _isLoading = false;
+
+        if (_selectedPlayerId != null &&
+            !_allPlayers.any((PlayerModel p) => p.id == _selectedPlayerId)) {
+          _selectedPlayerId = null;
+        }
       });
-    } catch (e) {
-      debugPrint(e.toString());
+
+      _listFadeController
+        ..reset()
+        ..forward();
+    } on PlayerRepositoryException catch (error) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showError(error.message);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showError(error.toString());
     }
+  }
+
+  List<PlayerModel> _filterPlayers(
+      List<PlayerModel> players,
+      String normalized,
+      ) {
+    if (normalized.isEmpty) return List<PlayerModel>.from(players);
+
+    return players.where((PlayerModel player) {
+      return player.name.toLowerCase().contains(normalized) ||
+          player.code.toLowerCase().contains(normalized) ||
+          (player.parentPhone ?? '').contains(normalized);
+    }).toList();
   }
 
   void _onSearchChanged(String query) {
     final String normalized = query.trim().toLowerCase();
+
     setState(() {
-      _filteredPlayers = normalized.isEmpty
-          ? _allPlayers
-          : _allPlayers.where((PlayerModel player) {
-        return player.name.toLowerCase().contains(normalized) ||
-            player.code.toLowerCase().contains(normalized) ||
-            player.phone.contains(normalized);
-      }).toList();
+      _filteredPlayers = _filterPlayers(_allPlayers, normalized);
 
       if (_selectedPlayerId != null &&
-          !_filteredPlayers.any((PlayerModel p) => p.id == _selectedPlayerId)) {
+          !_filteredPlayers.any(
+                (PlayerModel player) => player.id == _selectedPlayerId,
+          )) {
         _selectedPlayerId = null;
       }
     });
@@ -153,43 +131,80 @@ class _PlayersScreenState extends State<PlayersScreen>
 
   PlayerModel? get _selectedPlayer {
     if (_selectedPlayerId == null) return null;
+
     for (final PlayerModel player in _allPlayers) {
       if (player.id == _selectedPlayerId) return player;
     }
+
     return null;
   }
 
   Future<void> _openAddPlayer() async {
-    await Navigator.push<void>(
+    final PlayerModel? created = await Navigator.push<PlayerModel>(
       context,
-      MaterialPageRoute<void>(builder: (_) => const AddPlayerScreen()),
+      MaterialPageRoute<PlayerModel>(
+        builder: (_) => AddPlayerScreen(repository: _repository),
+      ),
     );
+
+    if (created != null) {
+      await _loadPlayers();
+    }
   }
 
   Future<void> _openPlayerDetails(PlayerModel player) async {
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute<void>(
-        // TODO(api): pass the selected player once PlayerDetailsScreen
-        // accepts a Player / playerId argument.
-        builder: (_) => PlayerDetailsScreen(
-          playerId: playermodel,
+    try {
+      final PlayerModel detailedPlayer = await _repository.getPlayer(player.id);
+
+      if (!mounted) return;
+
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => PlayerDetailsScreen(
+            player: detailedPlayer,
+            repository: _repository,
+          ),
         ),
-      ),
-    );
+      );
+
+      if (!mounted) return;
+      _clearSelection();
+      await _loadPlayers();
+    } on PlayerRepositoryException catch (error) {
+      if (mounted) _showError(error.message);
+    }
   }
 
   Future<void> _openEditPlayer(PlayerModel player) async {
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute<void>(
-        // TODO(api): pass the selected player once EditPlayerScreen
-        // accepts a Player / playerId argument.
-        builder: (_) => EditPlayerScreen(
-          playerId: playermodel,
+    try {
+      final PlayerModel detailedPlayer = await _repository.getPlayer(player.id);
+
+      if (!mounted) return;
+
+      final PlayerModel? updated = await Navigator.push<PlayerModel>(
+        context,
+        MaterialPageRoute<PlayerModel>(
+          builder: (_) => EditPlayerScreen(
+            player: detailedPlayer,
+            repository: _repository,
+          ),
         ),
-      ),
-    );
+      );
+
+      if (updated != null) {
+        _clearSelection();
+        await _loadPlayers();
+      }
+    } on PlayerRepositoryException catch (error) {
+      if (mounted) _showError(error.message);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -228,29 +243,36 @@ class _PlayersScreenState extends State<PlayersScreen>
               onChanged: _onSearchChanged,
             ),
             Expanded(
-              child: _filteredPlayers.isEmpty
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _filteredPlayers.isEmpty
                   ? _EmptyPlayersState(onAddPlayer: _openAddPlayer)
                   : FadeTransition(
                 opacity: _listFadeAnimation,
-                child: ListView.builder(
-                  padding: EdgeInsets.fromLTRB(
-                    16,
-                    8,
-                    16,
-                    hasSelection ? 112 : 24,
+                child: RefreshIndicator(
+                  onRefresh: _loadPlayers,
+                  child: ListView.builder(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      8,
+                      16,
+                      hasSelection ? 112 : 24,
+                    ),
+                    itemCount: _filteredPlayers.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final PlayerModel player =
+                      _filteredPlayers[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _PlayerCard(
+                          player: player,
+                          isSelected:
+                          player.id == _selectedPlayerId,
+                          onTap: () => _onPlayerTap(player),
+                        ),
+                      );
+                    },
                   ),
-                  itemCount: _filteredPlayers.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    final PlayerModel player = _filteredPlayers[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _PlayerCard(
-                        player: player,
-                        isSelected: player.id == _selectedPlayerId,
-                        onTap: () => _onPlayerTap(player),
-                      ),
-                    );
-                  },
                 ),
               ),
             ),
@@ -259,19 +281,14 @@ class _PlayersScreenState extends State<PlayersScreen>
       ),
       bottomSheet: _PlayerActionBar(
         player: _selectedPlayer,
-        onDetails: (PlayerModel player) => _openPlayerDetails(player),
-        onEdit: (PlayerModel player) => _openEditPlayer(player),
+        onDetails: _openPlayerDetails,
+        onEdit: _openEditPlayer,
         onDismiss: _clearSelection,
       ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Search bar
-// ---------------------------------------------------------------------------
-
-/// Search field filtering by player name, code, or phone number.
 class _PlayerSearchBar extends StatelessWidget {
   const _PlayerSearchBar({required this.controller, required this.onChanged});
 
@@ -323,13 +340,6 @@ class _PlayerSearchBar extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Player card
-// ---------------------------------------------------------------------------
-
-/// A single player row: avatar, name, group, age, attendance and status
-/// badge. Reflects selection with a green border, glow, background tint
-/// and a check icon, animating between states.
 class _PlayerCard extends StatelessWidget {
   const _PlayerCard({
     required this.player,
@@ -351,6 +361,11 @@ class _PlayerCard extends StatelessWidget {
     final Color backgroundColor = isSelected
         ? colorScheme.primary.withValues(alpha: 0.08)
         : colorScheme.surfaceContainerLow;
+    final String groupText = player.group ?? '-';
+    final String ageText = player.age?.toString() ?? '-';
+    final String attendanceText = player.attendance == null
+        ? '-'
+        : '${(player.attendance! * 100).round()}%';
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -402,7 +417,7 @@ class _PlayerCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${player.group} • ${player.age} yrs',
+                        '$groupText • $ageText yrs',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -419,7 +434,7 @@ class _PlayerCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '${(player.attendance * 100).round()}% attendance',
+                            '$attendanceText attendance',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -465,8 +480,6 @@ class _PlayerCard extends StatelessWidget {
   }
 }
 
-/// Circular avatar showing the player's initial, with a highlighted
-/// ring when the card is selected.
 class _PlayerAvatar extends StatelessWidget {
   const _PlayerAvatar({required this.player, required this.isSelected});
 
@@ -485,45 +498,64 @@ class _PlayerAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: colorScheme.primaryContainer,
+        image: player.photo == null
+            ? null
+            : DecorationImage(
+          image: NetworkImage(player.photo!),
+          fit: BoxFit.cover,
+        ),
         border: isSelected
             ? Border.all(color: colorScheme.primary, width: 2)
             : null,
       ),
       alignment: Alignment.center,
-      child: Text(
+      child: player.photo == null
+          ? Text(
         player.initial,
         style: theme.textTheme.titleMedium?.copyWith(
           color: colorScheme.onPrimaryContainer,
           fontWeight: FontWeight.w700,
         ),
-      ),
+      )
+          : null,
     );
   }
 }
 
-/// Small pill showing the player's status (active / inactive / pending).
 class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.status});
 
-  final PlayerStatus status;
+  final String status;
+
+  String _label() {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return 'Active';
+      case 'injured':
+        return 'Injured';
+      case 'inactive':
+      default:
+        return 'Inactive';
+    }
+  }
+
+  Color _color(ColorScheme colorScheme) {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return colorScheme.primary;
+      case 'injured':
+        return colorScheme.error;
+      case 'inactive':
+      default:
+        return colorScheme.onSurfaceVariant;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme colorScheme = theme.colorScheme;
-
-    final Color color;
-    switch (status) {
-      case PlayerStatus.active:
-        color = colorScheme.primary;
-        break;
-      case PlayerStatus.inactive:
-        color = colorScheme.error;
-        break;
-      case PlayerStatus.pending:
-        color = colorScheme.tertiary;
-        break;
-    }
+    final Color color = _color(colorScheme);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -532,7 +564,7 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        status.label,
+        _label(),
         style: theme.textTheme.labelSmall?.copyWith(
           color: color,
           fontWeight: FontWeight.w700,
@@ -542,12 +574,6 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Bottom action bar
-// ---------------------------------------------------------------------------
-
-/// Bottom bar that slides up once a single player is selected, offering
-/// only "Player Details" and "Edit Player". Hidden entirely otherwise.
 class _PlayerActionBar extends StatelessWidget {
   const _PlayerActionBar({
     required this.player,
@@ -613,7 +639,7 @@ class _PlayerActionBar extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          current.group,
+                          current.group ?? '-',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -646,7 +672,6 @@ class _PlayerActionBar extends StatelessWidget {
   }
 }
 
-/// A single button inside the bottom action bar.
 class _ActionBarButton extends StatelessWidget {
   const _ActionBarButton({
     required this.icon,
@@ -696,12 +721,6 @@ class _ActionBarButton extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Empty state
-// ---------------------------------------------------------------------------
-
-/// Shown when there are no players (or no matches for the current
-/// search), with a direct call to action to add the first player.
 class _EmptyPlayersState extends StatelessWidget {
   const _EmptyPlayersState({required this.onAddPlayer});
 

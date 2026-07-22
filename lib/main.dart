@@ -1,9 +1,13 @@
 // Entry point
 
 import 'package:flutter/material.dart';
+
+import 'models/player.dart';
+import 'repositories/player_repository.dart';
+
 import 'themes/light_theme.dart';
 import 'themes/dark_theme.dart';
-import 'screens/home/home_screen.dart';
+
 import 'screens/home/home_screen.dart';
 import 'screens/players/players_screen.dart';
 import 'screens/players/add_player_screen.dart';
@@ -17,6 +21,14 @@ void main() {
 class CoachApp extends StatelessWidget {
   const CoachApp({super.key});
 
+  static final PlayerRepository _playerRepository = PlayerRepository(
+    // غيّر الرابط إلى رابط الـ API الحقيقي.
+    baseUrl: 'https://turbo-app.com/api/sports_academy',
+
+    // JWT ملغي حاليًا، لذلك لا نرسل Authorization header.
+    headersProvider: () async => const <String, String>{},
+  );
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -28,16 +40,78 @@ class CoachApp extends StatelessWidget {
 
       initialRoute: '/home',
 
-      routes: {
-        '/home': (context) => const HomeScreen(),
+      routes: <String, WidgetBuilder>{
+        '/home': (BuildContext context) => const HomeScreen(),
 
-        '/players': (context) => const PlayersScreen(),
+        '/players': (BuildContext context) => PlayersScreen(
+          repository: _playerRepository,
+        ),
 
-        '/players/create': (context) => const AddPlayerScreen(),
+        '/players/create': (BuildContext context) => AddPlayerScreen(
+          repository: _playerRepository,
+        ),
+      },
 
-        '/players/edit': (context) => const EditPlayerScreen(),
+      onGenerateRoute: (RouteSettings settings) {
+        switch (settings.name) {
+          case '/players/details':
+            final Object? arguments = settings.arguments;
 
-        '/players/details': (context) => const PlayerDetailsScreen(),
+            if (arguments is! PlayerModel) {
+              return _errorRoute(
+                'Player data is required to open player details.',
+              );
+            }
+
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (BuildContext context) => PlayerDetailsScreen(
+                player: arguments,
+                repository: _playerRepository,
+              ),
+            );
+
+          case '/players/edit':
+            final Object? arguments = settings.arguments;
+
+            if (arguments is! PlayerModel) {
+              return _errorRoute(
+                'Player data is required to edit the player.',
+              );
+            }
+
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (BuildContext context) => EditPlayerScreen(
+                player: arguments,
+                repository: _playerRepository,
+              ),
+            );
+
+          default:
+            return _errorRoute('Page not found.');
+        }
+      },
+    );
+  }
+
+  static Route<void> _errorRoute(String message) {
+    return MaterialPageRoute<void>(
+      builder: (BuildContext context) {
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Error'),
+          ),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                message,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        );
       },
     );
   }

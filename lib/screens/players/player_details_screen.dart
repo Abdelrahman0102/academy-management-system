@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 
 import 'edit_player_screen.dart';
+import '/models/player.dart';
+import '/repositories/player_repository.dart';
 
 /// Player Details screen for the Sports Academy Management System.
 ///
@@ -11,23 +13,18 @@ import 'edit_player_screen.dart';
 /// two bottom actions (Call Parent — UI only, Edit Player — navigates
 /// to `EditPlayerScreen`).
 ///
-/// TODO(api): this screen currently seeds its view with dummy data via
-/// [_loadDummyPlayer]. Once `PlayersScreen` passes the selected player
-/// (or its id) through navigation, replace that seed with the real
-/// values / a `GET /players/{id}` fetch, and use [_isLoading] /
-/// [_ProfileSkeleton] to show the fetch's loading state.
-///
 /// Styling comes entirely from `Theme.of(context)`; no colors or fonts
 /// are hardcoded. This screen has no forms, no editable fields, and no
 /// save actions.
 class PlayerDetailsScreen extends StatefulWidget {
-  const PlayerDetailsScreen({super.key, this.playerId});
+  const PlayerDetailsScreen({
+    super.key,
+    required this.player,
+    required this.repository,
+  });
 
-  static const String routeName = '/players/details';
-
-  /// Id of the player being viewed. Optional for now — wire this in
-  /// once `PlayersScreen` passes the selected player through.
-  final String? playerId;
+  final PlayerModel player;
+  final PlayerRepository repository;
 
   @override
   State<PlayerDetailsScreen> createState() => _PlayerDetailsScreenState();
@@ -37,18 +34,14 @@ class _PlayerDetailsScreenState extends State<PlayerDetailsScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
+  late PlayerModel _playerModel;
 
-  // TODO(api): set this from a real GET /players/{id} call and flip it
-  // back to false once the response arrives. Kept false here since the
-  // dummy data is available synchronously.
   final bool _isLoading = false;
-
-  late final _PlayerDetails _player;
 
   @override
   void initState() {
     super.initState();
-   // _player = _loadDummyPlayer(widget.playerId);
+    _playerModel = widget.player;
 
     _fadeController = AnimationController(
       vsync: this,
@@ -67,37 +60,20 @@ class _PlayerDetailsScreenState extends State<PlayerDetailsScreen>
     super.dispose();
   }
 
-  /// Dummy player data standing in for the selected player until
-  /// `PlayersScreen` passes real data through navigation.
-  // _PlayerDetails _loadDummyPlayer(String? playerId) {
-  //   return const _PlayerDetails(
-  //     id: 'p1',
-  //     name: 'Youssef Hassan',
-  //     age: 13,
-  //     group: 'U14 - Falcons',
-  //     schedule: 'Sat / Mon / Wed - Morning',
-  //     status: _PlayerStatus.active,
-  //     photoUrl: null,
-  //     registrationDate: '02 Sep 2024',
-  //     parentName: 'Hassan Ibrahim',
-  //     parentPhone: '01012345678',
-  //     coachName: 'Coach Ahmed',
-  //     attendance: 0.92,
-  //     sessionsAttended: 46,
-  //     sessionsMissed: 4,
-  //     totalEvaluations: 6,
-  //     evaluationRating: 4.8,
-  //     latestCoachNote: 'Excellent discipline and improving every week.',
-  //   );
-  // }
-
   Future<void> _openEditPlayer() async {
-    await Navigator.push<void>(
+    final PlayerModel? updated = await Navigator.push<PlayerModel>(
       context,
-      MaterialPageRoute<void>(
-        builder: (_) => EditPlayerScreen(playerId: _player.id),
+      MaterialPageRoute<PlayerModel>(
+        builder: (_) => EditPlayerScreen(
+          player: _playerModel,
+          repository: widget.repository,
+        ),
       ),
     );
+
+    if (updated != null && mounted) {
+      setState(() => _playerModel = updated);
+    }
   }
 
   @override
@@ -128,8 +104,9 @@ class _PlayerDetailsScreenState extends State<PlayerDetailsScreen>
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints:
-                    BoxConstraints(maxWidth: maxContentWidth),
+                    constraints: BoxConstraints(
+                      maxWidth: maxContentWidth,
+                    ),
                     child: ListView(
                       padding: EdgeInsets.fromLTRB(
                         horizontalPadding,
@@ -138,7 +115,7 @@ class _PlayerDetailsScreenState extends State<PlayerDetailsScreen>
                         24,
                       ),
                       children: <Widget>[
-                        _ProfileHeader(player: _player),
+                        _ProfileHeader(player: _playerModel),
                         const SizedBox(height: 20),
                         _SectionCard(
                           icon: Icons.assignment_ind_rounded,
@@ -146,27 +123,31 @@ class _PlayerDetailsScreenState extends State<PlayerDetailsScreen>
                           children: <Widget>[
                             _InfoRow(
                               label: 'Player Name',
-                              value: _player.name,
+                              value: _playerModel.name,
                             ),
                             _InfoRow(
-                              label: 'Age',
-                              value: '${_player.age} years',
+                              label: 'Player Code',
+                              value: _playerModel.code,
                             ),
                             _InfoRow(
-                              label: 'Training Group',
-                              value: _player.group,
+                              label: 'Birth Date',
+                              value: _playerModel.birthDate,
                             ),
                             _InfoRow(
-                              label: 'Training Schedule',
-                              value: _player.schedule,
+                              label: 'Gender',
+                              value: _playerModel.gender,
                             ),
                             _InfoRow(
-                              label: 'Registration Date',
-                              value: _player.registrationDate,
+                              label: 'Status',
+                              value: _playerModel.status,
+                            ),
+                            _InfoRow(
+                              label: 'Medical Notes',
+                              value: _playerModel.medicalNotes ?? '-',
                             ),
                             _InfoRow(
                               label: 'Player ID',
-                              value: _player.id,
+                              value: _playerModel.id.toString(),
                               isLast: true,
                             ),
                           ],
@@ -178,11 +159,11 @@ class _PlayerDetailsScreenState extends State<PlayerDetailsScreen>
                           children: <Widget>[
                             _InfoRow(
                               label: 'Parent Name',
-                              value: _player.parentName,
+                              value: _playerModel.parentName ?? '-',
                             ),
                             _InfoRow(
                               label: 'Parent Phone',
-                              value: _player.parentPhone,
+                              value: _playerModel.parentPhone ?? '-',
                               isLast: true,
                             ),
                           ],
@@ -194,27 +175,27 @@ class _PlayerDetailsScreenState extends State<PlayerDetailsScreen>
                           children: <Widget>[
                             _InfoRow(
                               label: 'Training Group',
-                              value: _player.group,
+                              value: _playerModel.group ?? '-',
                             ),
                             _InfoRow(
                               label: 'Training Schedule',
-                              value: _player.schedule,
+                              value: _playerModel.schedule ?? '-',
                             ),
                             _InfoRow(
                               label: 'Coach Name',
-                              value: _player.coachName,
+                              value: _playerModel.coachName ?? '-',
                             ),
                             const SizedBox(height: 12),
                             _AttendanceIndicator(
-                              attendance: _player.attendance,
+                              attendance: _playerModel.attendance,
                             ),
                           ],
                         ),
                         const SizedBox(height: 16),
-                        _EvaluationCard(player: _player),
+                        _EvaluationCard(player: _playerModel),
                         const SizedBox(height: 16),
                         _QuickStatsSection(
-                          player: _player,
+                          player: _playerModel,
                           crossAxisCount: statsCrossAxisCount,
                         ),
                         const SizedBox(height: 20),
@@ -224,7 +205,7 @@ class _PlayerDetailsScreenState extends State<PlayerDetailsScreen>
                 ),
               ),
               _DetailsBottomBar(
-                player: _player,
+                player: _playerModel,
                 onEdit: _openEditPlayer,
                 maxContentWidth: maxContentWidth,
                 horizontalPadding: horizontalPadding,
@@ -238,80 +219,15 @@ class _PlayerDetailsScreenState extends State<PlayerDetailsScreen>
 }
 
 // ---------------------------------------------------------------------------
-// Data shape
-// ---------------------------------------------------------------------------
-
-enum _PlayerStatus { active, inactive, injured }
-
-extension _PlayerStatusLabel on _PlayerStatus {
-  String get label {
-    switch (this) {
-      case _PlayerStatus.active:
-        return 'Active';
-      case _PlayerStatus.inactive:
-        return 'Inactive';
-      case _PlayerStatus.injured:
-        return 'Injured';
-    }
-  }
-}
-
-/// Read-only player profile shape used to populate this screen. Field
-/// names are kept close to what `GET /players/{id}` is expected to
-/// return so wiring the real API later only touches
-/// [_PlayerDetailsScreenState._loadDummyPlayer].
-class _PlayerDetails {
-  const _PlayerDetails({
-    required this.id,
-    required this.name,
-    required this.age,
-    required this.group,
-    required this.schedule,
-    required this.status,
-    required this.photoUrl,
-    required this.registrationDate,
-    required this.parentName,
-    required this.parentPhone,
-    required this.coachName,
-    required this.attendance,
-    required this.sessionsAttended,
-    required this.sessionsMissed,
-    required this.totalEvaluations,
-    required this.evaluationRating,
-    required this.latestCoachNote,
-  });
-
-  final String id;
-  final String name;
-  final int age;
-  final String group;
-  final String schedule;
-  final _PlayerStatus status;
-  final String? photoUrl;
-  final String registrationDate;
-  final String parentName;
-  final String parentPhone;
-  final String coachName;
-  final double attendance;
-  final int sessionsAttended;
-  final int sessionsMissed;
-  final int totalEvaluations;
-  final double evaluationRating;
-  final String latestCoachNote;
-
-  String get initial => name.isNotEmpty ? name[0].toUpperCase() : '?';
-}
-
-// ---------------------------------------------------------------------------
 // Header
 // ---------------------------------------------------------------------------
 
-/// Profile header: large avatar (Hero-animated), name, group, age and
+/// Profile header: large avatar (Hero-animated), name, birth date and
 /// a status badge.
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({required this.player});
 
-  final _PlayerDetails player;
+  final PlayerModel player;
 
   @override
   Widget build(BuildContext context) {
@@ -329,9 +245,9 @@ class _ProfileHeader extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: colorScheme.primaryContainer,
-                image: player.photoUrl != null
+                image: player.photo != null
                     ? DecorationImage(
-                  image: NetworkImage(player.photoUrl!),
+                  image: NetworkImage(player.photo!),
                   fit: BoxFit.cover,
                 )
                     : null,
@@ -344,9 +260,11 @@ class _ProfileHeader extends StatelessWidget {
                 ],
               ),
               alignment: Alignment.center,
-              child: player.photoUrl == null
+              child: player.photo == null
                   ? Text(
-                player.initial,
+                player.name.isNotEmpty
+                    ? player.name[0].toUpperCase()
+                    : '?',
                 style: theme.textTheme.displaySmall?.copyWith(
                   color: colorScheme.onPrimaryContainer,
                   fontWeight: FontWeight.w700,
@@ -364,7 +282,7 @@ class _ProfileHeader extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${player.group} • ${player.age} yrs',
+            player.birthDate,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
@@ -381,25 +299,39 @@ class _ProfileHeader extends StatelessWidget {
 class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.status});
 
-  final _PlayerStatus status;
+  final String status;
+
+  String _getLabel() {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return 'Active';
+      case 'inactive':
+        return 'Inactive';
+      case 'injured':
+        return 'Injured';
+      default:
+        return '-';
+    }
+  }
+
+  Color _getColor(ColorScheme colorScheme) {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return colorScheme.primary;
+      case 'inactive':
+        return colorScheme.onSurfaceVariant;
+      case 'injured':
+        return colorScheme.error;
+      default:
+        return colorScheme.onSurfaceVariant;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme colorScheme = theme.colorScheme;
-
-    final Color color;
-    switch (status) {
-      case _PlayerStatus.active:
-        color = colorScheme.primary;
-        break;
-      case _PlayerStatus.inactive:
-        color = colorScheme.onSurfaceVariant;
-        break;
-      case _PlayerStatus.injured:
-        color = colorScheme.error;
-        break;
-    }
+    final Color color = _getColor(colorScheme);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -408,7 +340,7 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        status.label,
+        _getLabel(),
         style: theme.textTheme.labelMedium?.copyWith(
           color: color,
           fontWeight: FontWeight.w700,
@@ -541,12 +473,13 @@ class _InfoRow extends StatelessWidget {
 class _AttendanceIndicator extends StatelessWidget {
   const _AttendanceIndicator({required this.attendance});
 
-  final double attendance;
+  final double? attendance;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme colorScheme = theme.colorScheme;
+    final double progress = attendance ?? 0;
 
     return Row(
       children: <Widget>[
@@ -561,7 +494,7 @@ class _AttendanceIndicator extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(20),
             child: LinearProgressIndicator(
-              value: attendance.clamp(0.0, 1.0),
+              value: progress.clamp(0.0, 1.0).toDouble(),
               minHeight: 8,
               backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
               valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
@@ -570,7 +503,7 @@ class _AttendanceIndicator extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Text(
-          '${(attendance * 100).round()}%',
+          attendance == null ? '-' : '${(attendance! * 100).round()}%',
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w700,
             color: colorScheme.primary,
@@ -590,13 +523,17 @@ class _AttendanceIndicator extends StatelessWidget {
 class _EvaluationCard extends StatelessWidget {
   const _EvaluationCard({required this.player});
 
-  final _PlayerDetails player;
+  final PlayerModel player;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme colorScheme = theme.colorScheme;
-    final int fullStars = player.evaluationRating.floor();
+    final double? evaluationRating = player.evaluationRating;
+    final int fullStars = evaluationRating == null
+        ? 0
+        : evaluationRating.floor().clamp(0, 5).toInt();
+    final String? latestCoachNote = player.latestCoachNote;
 
     return Container(
       width: double.infinity,
@@ -651,7 +588,9 @@ class _EvaluationCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                '${player.evaluationRating.toStringAsFixed(1)} / 5',
+                evaluationRating == null
+                    ? '-'
+                    : '${evaluationRating.toStringAsFixed(1)} / 5',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -660,7 +599,7 @@ class _EvaluationCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            '"${player.latestCoachNote}"',
+            latestCoachNote == null ? '-' : '"$latestCoachNote"',
             style: theme.textTheme.bodyMedium?.copyWith(
               fontStyle: FontStyle.italic,
               color: colorScheme.onSurfaceVariant,
@@ -683,7 +622,7 @@ class _QuickStatsSection extends StatelessWidget {
     required this.crossAxisCount,
   });
 
-  final _PlayerDetails player;
+  final PlayerModel player;
   final int crossAxisCount;
 
   @override
@@ -693,22 +632,24 @@ class _QuickStatsSection extends StatelessWidget {
     final List<_StatEntry> stats = <_StatEntry>[
       _StatEntry(
         label: 'Attendance',
-        value: '${(player.attendance * 100).round()}%',
+        value: player.attendance == null
+            ? '-'
+            : '${(player.attendance! * 100).round()}%',
         icon: Icons.fact_check_rounded,
       ),
       _StatEntry(
         label: 'Sessions Attended',
-        value: '${player.sessionsAttended}',
+        value: player.sessionsAttended?.toString() ?? '-',
         icon: Icons.event_available_rounded,
       ),
       _StatEntry(
         label: 'Missed Sessions',
-        value: '${player.sessionsMissed}',
+        value: player.sessionsMissed?.toString() ?? '-',
         icon: Icons.event_busy_rounded,
       ),
       _StatEntry(
         label: 'Total Evaluations',
-        value: '${player.totalEvaluations}',
+        value: player.totalEvaluations?.toString() ?? '-',
         icon: Icons.insights_rounded,
       ),
     ];
@@ -826,7 +767,7 @@ class _DetailsBottomBar extends StatelessWidget {
     required this.horizontalPadding,
   });
 
-  final _PlayerDetails player;
+  final PlayerModel player;
   final VoidCallback onEdit;
   final double maxContentWidth;
   final double horizontalPadding;
@@ -915,8 +856,7 @@ class _DetailsBottomBar extends StatelessWidget {
 // Loading skeleton
 // ---------------------------------------------------------------------------
 
-/// Placeholder skeleton shown while the future `GET /players/{id}` call
-/// is in flight.
+/// Placeholder skeleton shown while player data is loading.
 class _ProfileSkeleton extends StatelessWidget {
   const _ProfileSkeleton();
 
