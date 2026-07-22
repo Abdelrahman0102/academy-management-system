@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 import '/models/player.dart';
 import '/models/group.dart';
@@ -112,6 +113,52 @@ class PlayerRepository {
     }
 
     return PlayerModel.fromJson(Map<String, dynamic>.from(rawPlayer));
+  }
+
+  Future<String> uploadPlayerPhoto({
+    required int playerId,
+    required XFile photo,
+  }) async {
+    final Uri uri = _uri('upload_player_photo.php', null);
+
+    final http.MultipartRequest request =
+    http.MultipartRequest('POST', uri);
+
+    request.headers.addAll(
+      await _headers(jsonBody: false),
+    );
+
+    request.fields['player_id'] = playerId.toString();
+
+    final List<int> bytes = await photo.readAsBytes();
+
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'photo',
+        bytes,
+        filename: photo.name,
+      ),
+    );
+
+    final http.StreamedResponse streamedResponse =
+    await request.send();
+
+    final http.Response response =
+    await http.Response.fromStream(streamedResponse);
+
+    final Map<String, dynamic> root = _decode(response);
+    final Map<String, dynamic> container =
+    _findContainer(root, 'photo');
+
+    final dynamic photoUrl = container['photo'];
+
+    if (photoUrl is! String || photoUrl.trim().isEmpty) {
+      throw const PlayerRepositoryException(
+        'The photo upload response does not contain the photo URL.',
+      );
+    }
+
+    return photoUrl.trim();
   }
 
   Future<List<TrainingGroupModel>> getGroups() async {

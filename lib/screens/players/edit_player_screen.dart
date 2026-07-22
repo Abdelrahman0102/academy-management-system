@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '/models/player.dart';
-import '/models/group.dart';
 import '/repositories/player_repository.dart';
 
 class EditPlayerScreen extends StatefulWidget {
@@ -31,18 +30,16 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
   late final TextEditingController _medicalNotesController;
   late final TextEditingController _parentNameController;
   late final TextEditingController _parentPhoneController;
+  late final TextEditingController _groupController;
   late final TextEditingController _scheduleController;
 
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
 
-  List<TrainingGroupModel> _groups = <TrainingGroupModel>[];
-  int? _selectedGroupId;
   late String _selectedGender;
   late String _selectedStatus;
   late String _selectedRelationship;
   bool _isSaving = false;
-  bool _isLoadingGroups = true;
 
   @override
   void initState() {
@@ -59,9 +56,9 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
         TextEditingController(text: player.parentName ?? '');
     _parentPhoneController =
         TextEditingController(text: player.parentPhone ?? '');
-    _scheduleController = TextEditingController(text: player.schedule ?? '-');
+    _groupController = TextEditingController(text: player.group ?? '');
+    _scheduleController = TextEditingController(text: player.schedule ?? '');
 
-    _selectedGroupId = player.groupId;
     _selectedGender = player.gender == 'Female' ? 'Female' : 'Male';
     _selectedStatus = <String>{'active', 'inactive', 'injured'}
         .contains(player.status.toLowerCase())
@@ -83,7 +80,6 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
     );
     _fadeController.forward();
 
-    _loadGroups();
   }
 
   @override
@@ -94,37 +90,10 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
     _medicalNotesController.dispose();
     _parentNameController.dispose();
     _parentPhoneController.dispose();
+    _groupController.dispose();
     _scheduleController.dispose();
     _fadeController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadGroups() async {
-    try {
-      final List<TrainingGroupModel> groups =
-      await widget.repository.getGroups();
-
-      if (!mounted) return;
-
-      TrainingGroupModel? selected;
-      for (final TrainingGroupModel group in groups) {
-        if (group.id == _selectedGroupId) {
-          selected = group;
-          break;
-        }
-      }
-
-      setState(() {
-        _groups = groups;
-        _isLoadingGroups = false;
-        _scheduleController.text =
-            selected?.schedule ?? widget.player.schedule ?? '-';
-      });
-    } on PlayerRepositoryException catch (error) {
-      if (!mounted) return;
-      setState(() => _isLoadingGroups = false);
-      _showError(error.message);
-    }
   }
 
   String? _validateRequired(String? value, String fieldLabel) {
@@ -165,22 +134,6 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
         '${selected.day.toString().padLeft(2, '0')}';
   }
 
-  void _onGroupChanged(int? groupId) {
-    TrainingGroupModel? selected;
-
-    for (final TrainingGroupModel group in _groups) {
-      if (group.id == groupId) {
-        selected = group;
-        break;
-      }
-    }
-
-    setState(() {
-      _selectedGroupId = groupId;
-      _scheduleController.text = selected?.schedule ?? '-';
-    });
-  }
-
   Future<void> _submit() async {
     final bool isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid || _isSaving) return;
@@ -196,7 +149,8 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
           birthDate: _birthDateController.text,
           gender: _selectedGender,
           status: _selectedStatus,
-          groupId: _selectedGroupId,
+          groupName: _groupController.text,
+          schedule: _scheduleController.text,
           parentName: _parentNameController.text,
           parentPhone: _parentPhoneController.text,
           relationship: _selectedRelationship,
@@ -388,43 +342,44 @@ class _EditPlayerScreenState extends State<EditPlayerScreen>
                               _LabeledField(
                                 label: 'Training Group',
                                 isRequired: true,
-                                child: DropdownButtonFormField<int>(
-                                  value: _groups.any(
-                                        (TrainingGroupModel group) =>
-                                    group.id == _selectedGroupId,
-                                  )
-                                      ? _selectedGroupId
-                                      : null,
-                                  decoration: InputDecoration(
-                                    hintText: _isLoadingGroups
-                                        ? 'Loading groups...'
-                                        : 'Select training group',
+                                child: TextFormField(
+                                  controller: _groupController,
+                                  textCapitalization: TextCapitalization.words,
+                                  textInputAction: TextInputAction.next,
+                                  inputFormatters: <TextInputFormatter>[
+                                    LengthLimitingTextInputFormatter(100),
+                                  ],
+                                  decoration: const InputDecoration(
+                                    hintText: 'Enter training group',
                                   ),
-                                  items: _groups
-                                      .map(
-                                        (TrainingGroupModel group) =>
-                                        DropdownMenuItem<int>(
-                                          value: group.id,
-                                          child: Text(group.name),
-                                        ),
-                                  )
-                                      .toList(growable: false),
-                                  onChanged:
-                                  _isLoadingGroups ? null : _onGroupChanged,
-                                  validator: (int? value) => value == null
-                                      ? 'Please select a training group'
-                                      : null,
+                                  validator: (String? value) =>
+                                      _validateRequired(
+                                        value,
+                                        'Training group',
+                                      ),
                                 ),
                               ),
                               const SizedBox(height: 16),
                               _LabeledField(
                                 label: 'Training Schedule',
+                                isRequired: true,
                                 child: TextFormField(
                                   controller: _scheduleController,
-                                  readOnly: true,
+                                  textCapitalization:
+                                  TextCapitalization.sentences,
+                                  textInputAction: TextInputAction.next,
+                                  inputFormatters: <TextInputFormatter>[
+                                    LengthLimitingTextInputFormatter(255),
+                                  ],
                                   decoration: const InputDecoration(
-                                    hintText: 'Schedule comes from the group',
+                                    hintText:
+                                    'Example: Sat / Mon / Wed - 5:00 PM',
                                   ),
+                                  validator: (String? value) =>
+                                      _validateRequired(
+                                        value,
+                                        'Training schedule',
+                                      ),
                                 ),
                               ),
                             ],

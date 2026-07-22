@@ -1,8 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '/models/player.dart';
-import '/models/group.dart';
 import '/repositories/player_repository.dart';
 
 class AddPlayerScreen extends StatefulWidget {
@@ -22,27 +24,26 @@ class AddPlayerScreen extends StatefulWidget {
 class _AddPlayerScreenState extends State<AddPlayerScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
+  final ImagePicker _imagePicker = ImagePicker();
+
+  XFile? _selectedPhoto;
+  Uint8List? _selectedPhotoBytes;
+
+
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _birthDateController = TextEditingController();
   final TextEditingController _medicalNotesController = TextEditingController();
   final TextEditingController _parentNameController = TextEditingController();
   final TextEditingController _parentPhoneController = TextEditingController();
+  final TextEditingController _groupController = TextEditingController();
   final TextEditingController _scheduleController = TextEditingController();
 
-  List<TrainingGroupModel> _groups = <TrainingGroupModel>[];
-  int? _selectedGroupId;
   String _selectedGender = 'Male';
   String _selectedStatus = 'active';
   String _selectedRelationship = 'Father';
   bool _isSubmitting = false;
-  bool _isLoadingGroups = true;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadGroups();
-  }
 
   @override
   void dispose() {
@@ -52,25 +53,9 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
     _medicalNotesController.dispose();
     _parentNameController.dispose();
     _parentPhoneController.dispose();
+    _groupController.dispose();
     _scheduleController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadGroups() async {
-    try {
-      final List<TrainingGroupModel> groups =
-      await widget.repository.getGroups();
-
-      if (!mounted) return;
-      setState(() {
-        _groups = groups;
-        _isLoadingGroups = false;
-      });
-    } on PlayerRepositoryException catch (error) {
-      if (!mounted) return;
-      setState(() => _isLoadingGroups = false);
-      _showError(error.message);
-    }
   }
 
   String? _validateRequired(String? value, String fieldLabel) {
@@ -92,6 +77,37 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
     return null;
   }
 
+  Future<void> _pickPhoto() async {
+    try {
+      final XFile? selectedPhoto = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+
+      if (selectedPhoto == null) return;
+
+      final Uint8List bytes = await selectedPhoto.readAsBytes();
+
+      const int maximumSize = 5 * 1024 * 1024;
+
+      if (bytes.lengthInBytes > maximumSize) {
+        if (!mounted) return;
+
+        _showError('Photo cannot exceed 5 MB.');
+        return;
+      }
+
+      setState(() {
+        _selectedPhoto = selectedPhoto;
+        _selectedPhotoBytes = bytes;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      _showError('Unable to select photo: $error');
+    }
+  }
+
   Future<void> _pickBirthDate() async {
     final DateTime now = DateTime.now();
     final DateTime? selected = await showDatePicker(
@@ -109,24 +125,6 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
         '${selected.day.toString().padLeft(2, '0')}';
   }
 
-  void _onGroupChanged(int? groupId) {
-    final TrainingGroupModel? group = _findGroup(groupId);
-
-    setState(() {
-      _selectedGroupId = groupId;
-      _scheduleController.text = group?.schedule ?? '-';
-    });
-  }
-
-  TrainingGroupModel? _findGroup(int? groupId) {
-    if (groupId == null) return null;
-
-    for (final TrainingGroupModel group in _groups) {
-      if (group.id == groupId) return group;
-    }
-
-    return null;
-  }
 
   Future<void> _submit() async {
     final bool isValid = _formKey.currentState?.validate() ?? false;
@@ -135,23 +133,35 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final PlayerModel created = await widget.repository.createPlayer(
-        PlayerInput(
-          code: _codeController.text,
-          name: _nameController.text,
-          birthDate: _birthDateController.text,
-          gender: _selectedGender,
-          status: _selectedStatus,
-          groupId: _selectedGroupId,
-          parentName: _parentNameController.text,
-          parentPhone: _parentPhoneController.text,
-          relationship: _selectedRelationship,
-          medicalNotes: _medicalNotesController.text,
-        ),
+      final PlayerInput input = PlayerInput(
+        code: _codeController.text,
+        name: _nameController.text,
+        birthDate: _birthDateController.text,
+        gender: _selectedGender,
+        status: _selectedStatus,
+        groupName: _groupController.text,
+        schedule: _scheduleController.text,
+        parentName: _parentNameController.text,
+        parentPhone: _parentPhoneController.text,
+        relationship: _selectedRelationship,
+        medicalNotes: _medicalNotesController.text,
       );
 
+      final PlayerModel created =
+      await widget.repository.createPlayer(input);
+
+      if (_selectedPhoto != null) {
+        await widget.repository.uploadPlayerPhoto(
+          playerId: created.id,
+          photo: _selectedPhoto!,
+        );
+      }
+
+      final PlayerModel completedPlayer =
+      await widget.repository.getPlayer(created.id);
+
       if (!mounted) return;
-      Navigator.pop(context, created);
+      Navigator.pop(context, completedPlayer);
     } on PlayerRepositoryException catch (error) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
@@ -203,7 +213,10 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
                         24,
                       ),
                       children: <Widget>[
-                        const _PlayerPhotoSection(),
+                        _PlayerPhotoSection(
+                          photoBytes: _selectedPhotoBytes,
+                          onTap: _pickPhoto,
+                        ),
                         const SizedBox(height: 20),
                         _SectionCard(
                           icon: Icons.assignment_ind_rounded,
@@ -325,38 +338,40 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
                             _LabeledField(
                               label: 'Training Group',
                               isRequired: true,
-                              child: DropdownButtonFormField<int>(
-                                value: _selectedGroupId,
-                                decoration: InputDecoration(
-                                  hintText: _isLoadingGroups
-                                      ? 'Loading groups...'
-                                      : 'Select training group',
+                              child: TextFormField(
+                                controller: _groupController,
+                                textCapitalization: TextCapitalization.words,
+                                textInputAction: TextInputAction.next,
+                                inputFormatters: <TextInputFormatter>[
+                                  LengthLimitingTextInputFormatter(100),
+                                ],
+                                decoration: const InputDecoration(
+                                  hintText: 'Enter training group',
                                 ),
-                                items: _groups
-                                    .map(
-                                      (TrainingGroupModel group) =>
-                                      DropdownMenuItem<int>(
-                                        value: group.id,
-                                        child: Text(group.name),
-                                      ),
-                                )
-                                    .toList(growable: false),
-                                onChanged:
-                                _isLoadingGroups ? null : _onGroupChanged,
-                                validator: (int? value) => value == null
-                                    ? 'Please select a training group'
-                                    : null,
+                                validator: (String? value) =>
+                                    _validateRequired(value, 'Training group'),
                               ),
                             ),
                             const SizedBox(height: 16),
                             _LabeledField(
                               label: 'Training Schedule',
+                              isRequired: true,
                               child: TextFormField(
                                 controller: _scheduleController,
-                                readOnly: true,
+                                textCapitalization: TextCapitalization.sentences,
+                                textInputAction: TextInputAction.next,
+                                inputFormatters: <TextInputFormatter>[
+                                  LengthLimitingTextInputFormatter(255),
+                                ],
                                 decoration: const InputDecoration(
-                                  hintText: 'Schedule comes from the group',
+                                  hintText:
+                                  'Example: Sat / Mon / Wed - 5:00 PM',
                                 ),
+                                validator: (String? value) =>
+                                    _validateRequired(
+                                      value,
+                                      'Training schedule',
+                                    ),
                               ),
                             ),
                           ],
@@ -450,7 +465,13 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
 }
 
 class _PlayerPhotoSection extends StatelessWidget {
-  const _PlayerPhotoSection();
+  const _PlayerPhotoSection({
+    required this.onTap,
+    this.photoBytes,
+  });
+
+  final VoidCallback onTap;
+  final Uint8List? photoBytes;
 
   @override
   Widget build(BuildContext context) {
@@ -461,7 +482,7 @@ class _PlayerPhotoSection extends StatelessWidget {
       child: Column(
         children: <Widget>[
           GestureDetector(
-            onTap: () {},
+            onTap: onTap,
             child: Stack(
               clipBehavior: Clip.none,
               children: <Widget>[
@@ -479,7 +500,15 @@ class _PlayerPhotoSection extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Icon(
+                  clipBehavior: Clip.antiAlias,
+                  child: photoBytes != null
+                      ? Image.memory(
+                    photoBytes!,
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.cover,
+                  )
+                      : Icon(
                     Icons.person_rounded,
                     size: 56,
                     color: colorScheme.onPrimaryContainer,
@@ -511,7 +540,9 @@ class _PlayerPhotoSection extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Tap to add photo',
+            photoBytes == null
+                ? 'Tap to add photo'
+                : 'Tap to change photo',
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),

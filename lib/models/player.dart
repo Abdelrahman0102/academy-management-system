@@ -197,7 +197,8 @@ class PlayerInput {
     required this.birthDate,
     required this.gender,
     required this.status,
-    required this.groupId,
+    required this.groupName,
+    required this.schedule,
     required this.parentName,
     required this.parentPhone,
     this.relationship = 'Father',
@@ -210,7 +211,8 @@ class PlayerInput {
   final String birthDate;
   final String gender;
   final String status;
-  final int? groupId;
+  final String groupName;
+  final String schedule;
   final String parentName;
   final String parentPhone;
   final String relationship;
@@ -224,7 +226,8 @@ class PlayerInput {
       'birth_date': birthDate.trim(),
       'gender': gender,
       'status': status,
-      'group_id': groupId,
+      'group_name': groupName.trim(),
+      'training_schedule': schedule.trim(),
       'parent_name': parentName.trim(),
       'parent_phone': parentPhone.trim(),
       'relationship': relationship,

@@ -245,12 +245,6 @@ class _ProfileHeader extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: colorScheme.primaryContainer,
-                image: player.photo != null
-                    ? DecorationImage(
-                  image: NetworkImage(player.photo!),
-                  fit: BoxFit.cover,
-                )
-                    : null,
                 boxShadow: <BoxShadow>[
                   BoxShadow(
                     color: colorScheme.shadow.withValues(alpha: 0.1),
@@ -259,18 +253,8 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                 ],
               ),
-              alignment: Alignment.center,
-              child: player.photo == null
-                  ? Text(
-                player.name.isNotEmpty
-                    ? player.name[0].toUpperCase()
-                    : '?',
-                style: theme.textTheme.displaySmall?.copyWith(
-                  color: colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w700,
-                ),
-              )
-                  : null,
+              clipBehavior: Clip.antiAlias,
+              child: _PlayerProfileImage(player: player),
             ),
           ),
           const SizedBox(height: 14),
@@ -291,6 +275,90 @@ class _ProfileHeader extends StatelessWidget {
           _StatusBadge(status: player.status),
         ],
       ),
+    );
+  }
+}
+
+class _PlayerProfileImage extends StatelessWidget {
+  const _PlayerProfileImage({
+    required this.player,
+  });
+
+  final PlayerModel player;
+
+  bool get _hasPhoto {
+    final String? photo = player.photo;
+    return photo != null && photo.trim().isNotEmpty;
+  }
+
+  Widget _fallback(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    return ColoredBox(
+      color: colorScheme.primaryContainer,
+      child: Center(
+        child: Text(
+          player.initial,
+          style: theme.textTheme.displaySmall?.copyWith(
+            color: colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_hasPhoto) {
+      return _fallback(context);
+    }
+
+    return Image.network(
+      player.photo!.trim(),
+      width: 120,
+      height: 120,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      loadingBuilder: (
+          BuildContext context,
+          Widget child,
+          ImageChunkEvent? loadingProgress,
+          ) {
+        if (loadingProgress == null) {
+          return child;
+        }
+
+        final int? expectedBytes = loadingProgress.expectedTotalBytes;
+        final double? progress = expectedBytes == null
+            ? null
+            : loadingProgress.cumulativeBytesLoaded / expectedBytes;
+
+        return Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            _fallback(context),
+            Center(
+              child: SizedBox(
+                width: 26,
+                height: 26,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  value: progress,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+      errorBuilder: (
+          BuildContext context,
+          Object error,
+          StackTrace? stackTrace,
+          ) {
+        return _fallback(context);
+      },
     );
   }
 }
