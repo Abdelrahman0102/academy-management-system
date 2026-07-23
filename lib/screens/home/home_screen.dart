@@ -50,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen>
 
    static const List<_QuickAction> _quickActions = <_QuickAction>[
     _QuickAction(
-      label: 'التدريب',
+      label: 'المدربين',
       icon: Icons.groups_rounded,
       route: '/attendance/qr-scan',
 
