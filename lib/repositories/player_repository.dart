@@ -115,6 +115,33 @@ class PlayerRepository {
     return PlayerModel.fromJson(Map<String, dynamic>.from(rawPlayer));
   }
 
+  /// Creates a new player evaluation through evaluations.php.
+  ///
+  /// The payload must contain player_id and every individual evaluation
+  /// criterion. Calculated totals are intentionally not sent because the
+  /// backend calculates them dynamically.
+  Future<Map<String, dynamic>> saveEvaluation(
+      Map<String, dynamic> evaluationData,
+      ) async {
+    final Map<String, dynamic> root = await _sendJson(
+      method: 'POST',
+      endpoint: 'evaluations.php',
+      body: evaluationData,
+    );
+
+    final Map<String, dynamic> container =
+    _findContainer(root, 'evaluation');
+    final dynamic rawEvaluation = container['evaluation'];
+
+    if (rawEvaluation is! Map) {
+      throw const PlayerRepositoryException(
+        'The save response does not contain the created evaluation.',
+      );
+    }
+
+    return Map<String, dynamic>.from(rawEvaluation);
+  }
+
   Future<String> uploadPlayerPhoto({
     required int playerId,
     required XFile photo,

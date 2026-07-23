@@ -13,6 +13,7 @@ import 'screens/players/players_screen.dart';
 import 'screens/players/add_player_screen.dart';
 import 'screens/players/edit_player_screen.dart';
 import 'screens/players/player_details_screen.dart';
+import 'screens/evaluations/player_evaluation_screen.dart';
 
 void main() {
   runApp(const CoachApp());
@@ -47,10 +48,15 @@ class CoachApp extends StatelessWidget {
           repository: _playerRepository,
         ),
 
+
         '/players/create': (BuildContext context) => AddPlayerScreen(
           repository: _playerRepository,
         ),
+        '/evaluations': (BuildContext context) => PlayerEvaluationScreen(
+          repository: _playerRepository,
+        ),
       },
+
 
       onGenerateRoute: (RouteSettings settings) {
         switch (settings.name) {
