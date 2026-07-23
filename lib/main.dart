@@ -14,6 +14,11 @@ import 'screens/players/add_player_screen.dart';
 import 'screens/players/edit_player_screen.dart';
 import 'screens/players/player_details_screen.dart';
 import 'screens/evaluations/player_evaluation_screen.dart';
+import 'screens/splash/splash_screen.dart';
+import '../screens/login/login_screen.dart';
+import '../screens/coaches/coaches_screen.dart';
+import '../repositories/coach_repository.dart';
+//import '/add_coach_screen.dart';
 
 void main() {
   runApp(const CoachApp());
@@ -39,7 +44,7 @@ class CoachApp extends StatelessWidget {
       darkTheme: AppDarkTheme.theme,
       themeMode: ThemeMode.system,
 
-      initialRoute: '/home',
+      initialRoute: '/splash',
 
       routes: <String, WidgetBuilder>{
         '/home': (BuildContext context) => const HomeScreen(),
@@ -52,9 +57,24 @@ class CoachApp extends StatelessWidget {
         '/players/create': (BuildContext context) => AddPlayerScreen(
           repository: _playerRepository,
         ),
+        '/splash': (context) => const SplashScreen(),
+
+        '/login': (context) => const LoginScreen(role: '',),
+
+        '/coaches': (context) => CoachesScreen(
+          repository: CoachRepository(
+            baseUrl: 'https://turbo-app.com/api/sports_academy',
+            headersProvider: () async => const <String, String>{},
+          ),
+        ),
+
+        // '/coaches/add': (context) => AddCoachScreen(
+        //   repository: _coachRepository,
+        // ),
         '/evaluations': (BuildContext context) => PlayerEvaluationScreen(
           repository: _playerRepository,
         ),
+
       },
 
 

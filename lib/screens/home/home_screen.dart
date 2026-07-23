@@ -1,5 +1,8 @@
 // home_screen.dart
 import 'package:flutter/material.dart';
+import '/screens/coaches/coaches_screen.dart';
+import '/repositories/coach_repository.dart';
+
 
 /// Coach Dashboard — Home screen for the Sports Academy Management System.
 ///
@@ -49,12 +52,11 @@ class _HomeScreenState extends State<HomeScreen>
   ];
 
    static const List<_QuickAction> _quickActions = <_QuickAction>[
-    _QuickAction(
-      label: 'المدربين',
-      icon: Icons.groups_rounded,
-      route: '/attendance/qr-scan',
-
-    ),
+     _QuickAction(
+       label: 'المدربين',
+       icon: Icons.groups_rounded,
+       route: '/coaches',
+     ),
      _QuickAction(
        label: 'اللاعبين',
        icon: Icons.sports_soccer_rounded,
