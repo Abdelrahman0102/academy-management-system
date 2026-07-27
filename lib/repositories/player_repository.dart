@@ -25,6 +25,7 @@ class PlayerRepository {
   final ApiHeadersProvider _headersProvider;
   final http.Client _client;
 
+
   Future<List<PlayerModel>> getPlayers({
     int page = 1,
     int limit = 100,

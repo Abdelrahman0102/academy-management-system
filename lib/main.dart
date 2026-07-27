@@ -1,6 +1,7 @@
 // Entry point
 
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import 'models/player.dart';
 import 'repositories/player_repository.dart';
@@ -19,6 +20,12 @@ import '../screens/login/login_screen.dart';
 import '../screens/coaches/coaches_screen.dart';
 import '../repositories/coach_repository.dart';
 //import '/add_coach_screen.dart';
+import '../repositories/attendance_repository.dart';
+import 'screens/attendance/attendance_screen.dart';
+
+import '/repositories/parent_account_request_repository.dart';
+import '/screens/parent_account_requests_screen.dart';
+import '/services/session_service.dart';
 
 void main() {
   runApp(const CoachApp());
@@ -35,6 +42,13 @@ class CoachApp extends StatelessWidget {
     headersProvider: () async => const <String, String>{},
   );
 
+  static final AttendanceRepository _attendanceRepository =
+  AttendanceRepository(
+  client: http.Client(),
+  baseUrl: 'https://turbo-app.com/api/sports_academy',
+  playerRepository: _playerRepository,
+  );
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -47,6 +61,15 @@ class CoachApp extends StatelessWidget {
       initialRoute: '/splash',
 
       routes: <String, WidgetBuilder>{
+
+        '/parent-account-requests': (BuildContext context) {
+          return ParentAccountRequestsScreen(
+            repository: ParentAccountRequestRepository(
+              baseUrl: 'https://turbo-app.com/api/sports_academy',
+              headersProvider: SessionService.authHeaders,
+            ),
+          );
+        },
         '/home': (BuildContext context) => const HomeScreen(),
 
         '/players': (BuildContext context) => PlayersScreen(
@@ -56,6 +79,9 @@ class CoachApp extends StatelessWidget {
 
         '/players/create': (BuildContext context) => AddPlayerScreen(
           repository: _playerRepository,
+        ),
+        '/attendance': (BuildContext context) => AttendanceScreen(
+          repository: _attendanceRepository,
         ),
         '/splash': (context) => const SplashScreen(),
 
@@ -74,6 +100,7 @@ class CoachApp extends StatelessWidget {
         '/evaluations': (BuildContext context) => PlayerEvaluationScreen(
           repository: _playerRepository,
         ),
+
 
       },
 

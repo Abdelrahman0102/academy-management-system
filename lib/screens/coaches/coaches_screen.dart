@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '/models/coach.dart';
 import '/repositories/coach_repository.dart';
+import '/screens/coaches/add_coach_screen.dart';
 
 // NOTE ON ASSUMPTIONS
 // --------------------------------------------------------------------------
@@ -169,13 +170,25 @@ class _CoachesScreenState extends State<CoachesScreen>
     final bool? created = await Navigator.push<bool>(
       context,
       MaterialPageRoute<bool>(
-        builder: (_) => const _ComingSoonScreen(title: 'Add Coach'),
+        builder: (_) => AddCoachScreen(
+          repository: _repository,
+        ),
       ),
     );
 
-    if (created == true) {
-      await _loadCoaches();
-    }
+    if (created != true) return;
+
+    await _loadCoaches();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Coach created successfully.'),
+        ),
+      );
   }
 
   Future<void> _openCoachDetails(CoachModel coach) async {
@@ -465,8 +478,8 @@ class _CoachCard extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 4),
-          Text(
-            coach.specialization ?? '-',
+                          Text(
+                            coach.specialization ?? '-',
 
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

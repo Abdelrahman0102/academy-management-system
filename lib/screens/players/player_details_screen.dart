@@ -740,7 +740,7 @@ class _QuickStatsSection extends StatelessWidget {
             crossAxisCount: crossAxisCount,
             mainAxisSpacing: 14,
             crossAxisSpacing: 14,
-            childAspectRatio: 1.5,
+            mainAxisExtent: 126,
           ),
           itemBuilder: (BuildContext context, int index) {
             return _StatCard(entry: stats[index]);
@@ -764,8 +764,67 @@ class _StatEntry {
 }
 
 /// A single quick-statistic tile: icon, large value, small label.
+// class _StatCard extends StatelessWidget {
+//   const _StatCard({required this.entry});
+//
+//   final _StatEntry entry;
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final ThemeData theme = Theme.of(context);
+//     final ColorScheme colorScheme = theme.colorScheme;
+//
+//     return Container(
+//       padding: const EdgeInsets.all(14),
+//       decoration: BoxDecoration(
+//         color: colorScheme.surfaceContainerLow,
+//         borderRadius: BorderRadius.circular(18),
+//         boxShadow: <BoxShadow>[
+//           BoxShadow(
+//             color: colorScheme.shadow.withValues(alpha: 0.06),
+//             blurRadius: 14,
+//             offset: const Offset(0, 6),
+//           ),
+//         ],
+//       ),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//         children: <Widget>[
+//           Container(
+//             width: 34,
+//             height: 34,
+//             decoration: BoxDecoration(
+//               shape: BoxShape.circle,
+//               color: colorScheme.primary.withValues(alpha: 0.12),
+//             ),
+//             child: Icon(entry.icon, size: 17, color: colorScheme.primary),
+//           ),
+//           const SizedBox(height: 10),
+//           Text(
+//             entry.value,
+//             style: theme.textTheme.titleLarge?.copyWith(
+//               fontWeight: FontWeight.w800,
+//             ),
+//           ),
+//           Text(
+//             entry.label,
+//             maxLines: 1,
+//             overflow: TextOverflow.ellipsis,
+//             style: theme.textTheme.bodySmall?.copyWith(
+//               color: colorScheme.onSurfaceVariant,
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.entry});
+  const _StatCard({
+    required this.entry,
+  });
 
   final _StatEntry entry;
 
@@ -775,13 +834,15 @@ class _StatCard extends StatelessWidget {
     final ColorScheme colorScheme = theme.colorScheme;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(18),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.06),
+            color: colorScheme.shadow.withValues(
+              alpha: 0.06,
+            ),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -789,24 +850,39 @@ class _StatCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
           Container(
-            width: 34,
-            height: 34,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: colorScheme.primary.withValues(alpha: 0.12),
+              color: colorScheme.primary.withValues(
+                alpha: 0.12,
+              ),
             ),
-            child: Icon(entry.icon, size: 17, color: colorScheme.primary),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            entry.value,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
+            child: Icon(
+              entry.icon,
+              size: 16,
+              color: colorScheme.primary,
             ),
           ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                entry.value,
+                maxLines: 1,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 3),
           Text(
             entry.label,
             maxLines: 1,

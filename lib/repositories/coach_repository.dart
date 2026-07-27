@@ -100,6 +100,36 @@ class CoachRepository {
       body: input.toJson(),
     );
 
+    return _coachFromCreateResponse(root);
+  }
+
+  /// Creates a coach directly from the Add Coach form without depending on
+  /// a particular CoachInput constructor shape.
+  Future<CoachModel> createCoachFromData({
+    required String fullName,
+    required String phone,
+    required String password,
+    String? specialization,
+    String? notes,
+  }) async {
+    final Map<String, dynamic> root = await _sendJson(
+      method: 'POST',
+      endpoint: 'coaches.php',
+      body: <String, dynamic>{
+        'full_name': fullName,
+        'phone': phone,
+        'password': password,
+        'specialization': specialization,
+        'notes': notes,
+      },
+    );
+
+    return _coachFromCreateResponse(root);
+  }
+
+  CoachModel _coachFromCreateResponse(
+      Map<String, dynamic> root,
+      ) {
     final Map<String, dynamic> container =
     _findContainer(root, 'coach');
 
