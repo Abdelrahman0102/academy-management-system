@@ -26,13 +26,23 @@ import 'screens/attendance/attendance_screen.dart';
 import '/repositories/parent_account_request_repository.dart';
 import '/screens/parent_account_requests_screen.dart';
 import '/services/session_service.dart';
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-void main() {
   runApp(const CoachApp());
 }
 
+
+
+// void main() {
+//
+//   runApp(const CoachApp());
+// }
+
 class CoachApp extends StatelessWidget {
   const CoachApp({super.key});
+
+
 
   static final PlayerRepository _playerRepository = PlayerRepository(
     // غيّر الرابط إلى رابط الـ API الحقيقي.
