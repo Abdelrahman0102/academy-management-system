@@ -7,8 +7,11 @@ class AppLightTheme {
   static const Color primary = Color(0xff22C55E);
   static const Color secondary = Color(0xff38BDF8);
 
-  static const Color background = Color(0xffF8FAFC);
-  static const Color surface = Colors.white;
+  // لون خلفية التطبيق مثل الصورة.
+  static const Color background = Color(0xffF4F4F4);
+
+  // خلفية الكروت.
+  static const Color surface = Color(0xffFFFFFF);
 
   static const Color border = Color(0xffE2E8F0);
 
@@ -22,7 +25,17 @@ class AppLightTheme {
     colorScheme: const ColorScheme.light(
       primary: primary,
       secondary: secondary,
+
+      // الخلفية العامة للعناصر الأساسية.
       surface: surface,
+
+      // لضمان أن كل الكروت المستخدمة في الشاشات تصبح بيضاء.
+      surfaceContainerLowest: surface,
+      surfaceContainerLow: surface,
+      surfaceContainer: surface,
+      surfaceContainerHigh: surface,
+      surfaceContainerHighest: surface,
+
       error: Color(0xffEF4444),
     ),
 
@@ -42,7 +55,8 @@ class AppLightTheme {
       ),
     ),
 
-    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+    floatingActionButtonTheme:
+    const FloatingActionButtonThemeData(
       backgroundColor: primary,
       foregroundColor: Colors.white,
       elevation: 0,
@@ -52,7 +66,10 @@ class AppLightTheme {
       style: ElevatedButton.styleFrom(
         backgroundColor: primary,
         foregroundColor: Colors.white,
-        minimumSize: const Size(double.infinity, 55),
+        minimumSize: const Size(
+          double.infinity,
+          55,
+        ),
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -62,14 +79,16 @@ class AppLightTheme {
 
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
+      fillColor: surface,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: 18,
         vertical: 16,
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: border),
+        borderSide: const BorderSide(
+          color: border,
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),

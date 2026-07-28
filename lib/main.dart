@@ -66,7 +66,7 @@ class CoachApp extends StatelessWidget {
 
       theme: AppLightTheme.theme,
       darkTheme: AppDarkTheme.theme,
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
 
       initialRoute: '/splash',
 
