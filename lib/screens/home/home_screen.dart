@@ -125,11 +125,13 @@ class _HomeScreenState extends State<HomeScreen>
       label: 'Profile',
       route: '/profile',
     ),
-    _DrawerItem(
-      icon: Icons.settings_rounded,
-      label: 'Settings',
-      route: '/settings',
-    ),
+    // _DrawerItem(
+    //
+    //   icon: Icons.settings_rounded,
+    //   label: 'Settings',
+    //   route: '/settings',
+    //
+    // ),
   ];
 
   @override
@@ -1399,6 +1401,33 @@ class _HomeDrawer extends StatelessWidget {
                 },
               ),
             ),
+            const Divider(height: 1),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: 4,
+              ),
+              child: _DrawerTile(
+                item: const _DrawerItem(
+                  icon: Icons.settings_rounded,
+                  label: 'Settings',
+                  route: '/settings',
+                ),
+                isSelected:
+                currentRoute == '/settings',
+                onTap: () {
+                  Navigator.pop(context);
+
+                  if (currentRoute != '/settings') {
+                    Navigator.pushNamed(
+                      context,
+                      '/settings',
+                    );
+                  }
+                },
+              ),
+            ),
+
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.symmetric(

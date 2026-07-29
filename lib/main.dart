@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'models/player.dart';
+import 'models/user_settings.dart';
 import 'repositories/player_repository.dart';
 
 import 'themes/light_theme.dart';
@@ -22,10 +23,12 @@ import '../repositories/coach_repository.dart';
 //import '/add_coach_screen.dart';
 import '../repositories/attendance_repository.dart';
 import 'screens/attendance/attendance_screen.dart';
-
+import 'screens/settings/settings_screen.dart';
+import '../repositories/user_settings_repository.dart';
 import '/repositories/parent_account_request_repository.dart';
 import '/screens/parent_account_requests_screen.dart';
 import '/services/session_service.dart';
+import '/settings/app_settings_controller.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -41,6 +44,17 @@ Future<void> main() async {
 
 class CoachApp extends StatelessWidget {
   const CoachApp({super.key});
+  static final UserSettingsRepository _settingsRepository =
+  UserSettingsRepository(
+    baseUrl:
+    'https://turbo-app.com/api/sports_academy',
+    headersProvider: SessionService.authHeaders,
+  );
+
+  static final AppSettingsController _settingsController =
+  AppSettingsController(
+    repository: _settingsRepository,
+  );
 
 
 
@@ -61,12 +75,18 @@ class CoachApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+return AnimatedBuilder(
+animation: _settingsController,
+builder: (
+BuildContext context,
+Widget? child,
+) {
+return MaterialApp(
       debugShowCheckedModeBanner: false,
 
       theme: AppLightTheme.theme,
       darkTheme: AppDarkTheme.theme,
-      themeMode: ThemeMode.light,
+  themeMode: _settingsController.themeMode,
 
       initialRoute: '/splash',
 
@@ -93,9 +113,23 @@ class CoachApp extends StatelessWidget {
         '/attendance': (BuildContext context) => AttendanceScreen(
           repository: _attendanceRepository,
         ),
-        '/splash': (context) => const SplashScreen(),
+        '/settings': (BuildContext context) {
+          return SettingsScreen(
+            controller: _settingsController,
+          );
+        },
+        '/splash': (BuildContext context) {
+          return SplashScreen(
+            settingsController: _settingsController,
+          );
+        },
 
-        '/login': (context) => const LoginScreen(role: '',),
+        '/login': (BuildContext context) {
+          return LoginScreen(
+            role: '',
+            settingsController: _settingsController,
+          );
+        },
 
         '/coaches': (context) => CoachesScreen(
           repository: CoachRepository(
@@ -103,6 +137,7 @@ class CoachApp extends StatelessWidget {
             headersProvider: () async => const <String, String>{},
           ),
         ),
+
 
         // '/coaches/add': (context) => AddCoachScreen(
         //   repository: _coachRepository,
@@ -155,7 +190,9 @@ class CoachApp extends StatelessWidget {
             return _errorRoute('Page not found.');
         }
       },
-    );
+);
+},
+);
   }
 
   static Route<void> _errorRoute(String message) {

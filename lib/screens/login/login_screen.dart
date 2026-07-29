@@ -6,6 +6,7 @@ import '/repositories/auth_repository.dart';
 import '/services/session_service.dart';
 import '../coaches/coaches_screen.dart';
 import '../home/home_screen.dart';
+import '../../settings/app_settings_controller.dart';
 
 /// Replace with wherever the app already builds its shared repositories
 /// (e.g. a service locator / Provider). Kept as a simple constant here so
@@ -16,15 +17,18 @@ const String _kApiBaseUrl = 'https://turbo-app.com/api/sports_academy';
 /// [role] ('admin' or 'coach'). Same theme, buttons and input styling as
 /// the rest of the app — no redesign, only new screen composition.
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.role});
+  const LoginScreen({
+    required this.role,
+    required this.settingsController,
+    super.key,
+  });
 
-  static const String routeName = '/login';
-
-  /// 'admin' or 'coach'.
   final String role;
+  final AppSettingsController settingsController;
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<LoginScreen> createState() =>
+      _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
@@ -85,6 +89,16 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       await SessionService.save(session);
+      try {
+        await widget.settingsController
+            .loadCurrentUserSettings(
+          force: true,
+        );
+      } catch (error) {
+        debugPrint(
+          'Could not load user settings: $error',
+        );
+      }
 
       if (!mounted) return;
 

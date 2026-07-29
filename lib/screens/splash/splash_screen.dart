@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 
 import '../login/login_screen.dart';
-
+import '../../settings/app_settings_controller.dart';
 /// Role-selection screen shown at app start. This is NOT an automatic
 /// splash — the user picks whether they're logging in as Admin or Coach,
 /// then is sent to [LoginScreen] with that role.
@@ -13,12 +13,16 @@ import '../login/login_screen.dart';
 /// entry, and card surfaces built from `colorScheme.surfaceContainerLow`
 /// with the same soft shadow used by the Home overview card.
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({
+    required this.settingsController,
+    super.key,
+  });
 
-  static const String routeName = '/';
+  final AppSettingsController settingsController;
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  State<SplashScreen> createState() =>
+      _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen>
@@ -50,7 +54,13 @@ class _SplashScreenState extends State<SplashScreen>
     Navigator.push(
       context,
       MaterialPageRoute<void>(
-        builder: (_) => LoginScreen(role: role),
+        builder: (BuildContext context) {
+          return LoginScreen(
+            role: role,
+            settingsController:
+            widget.settingsController,
+          );
+        },
       ),
     );
   }
