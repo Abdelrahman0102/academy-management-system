@@ -1,6 +1,7 @@
 // evaluation_screen.dart
 import 'package:flutter/material.dart';
 
+import '/l10n/app_localizations.dart';
 import '/models/player.dart';
 import '/repositories/player_repository.dart';
 
@@ -59,45 +60,45 @@ class _EvaluationScreenState extends State<EvaluationScreen>
   int _pressure = 0;
 
   static const List<_ScoreField> _technicalFields = <_ScoreField>[
-    _ScoreField('passing', 'Passing'),
-    _ScoreField('dribbling', 'Dribbling'),
-    _ScoreField('shooting', 'Shooting'),
-    _ScoreField('running_with_ball', 'Running with Ball'),
-    _ScoreField('ball_control', 'Ball Control'),
+    _ScoreField('passing'),
+    _ScoreField('dribbling'),
+    _ScoreField('shooting'),
+    _ScoreField('running_with_ball'),
+    _ScoreField('ball_control'),
   ];
 
   static const List<_ScoreField> _physicalFields = <_ScoreField>[
-    _ScoreField('agility_flexibility', 'Agility & Flexibility'),
-    _ScoreField('strength', 'Strength'),
-    _ScoreField('speed', 'Speed'),
-    _ScoreField('coordination', 'Coordination'),
+    _ScoreField('agility_flexibility'),
+    _ScoreField('strength'),
+    _ScoreField('speed'),
+    _ScoreField('coordination'),
   ];
 
   static const List<_ScoreField> _tacticalFields = <_ScoreField>[
-    _ScoreField('attack', 'Attack'),
-    _ScoreField('defense', 'Defense'),
+    _ScoreField('attack'),
+    _ScoreField('defense'),
   ];
 
   static const List<_ScoreField> _psychologicalFields = <_ScoreField>[
-    _ScoreField('decision_making', 'Decision Making'),
-    _ScoreField('awareness', 'Awareness'),
-    _ScoreField('attention_focus', 'Attention & Focus'),
+    _ScoreField('decision_making'),
+    _ScoreField('awareness'),
+    _ScoreField('attention_focus'),
   ];
 
   static const List<_ScoreField> _personalFields = <_ScoreField>[
-    _ScoreField('determination', 'Determination'),
-    _ScoreField('creativity', 'Creativity'),
-    _ScoreField('self_confidence', 'Self Confidence'),
-    _ScoreField('leadership', 'Leadership'),
-    _ScoreField('cooperation', 'Cooperation'),
+    _ScoreField('determination'),
+    _ScoreField('creativity'),
+    _ScoreField('self_confidence'),
+    _ScoreField('leadership'),
+    _ScoreField('cooperation'),
   ];
 
   static const List<_ScoreField> _disciplineFields = <_ScoreField>[
-    _ScoreField('emotional_stability', 'Emotional Stability'),
-    _ScoreField('training_attendance', 'Training Attendance'),
-    _ScoreField('following_instructions', 'Following Instructions'),
-    _ScoreField('uniform_commitment', 'Uniform Commitment'),
-    _ScoreField('behavior', 'Behavior'),
+    _ScoreField('emotional_stability'),
+    _ScoreField('training_attendance'),
+    _ScoreField('following_instructions'),
+    _ScoreField('uniform_commitment'),
+    _ScoreField('behavior'),
   ];
 
   static const int _pressureMax = 40;
@@ -138,13 +139,13 @@ class _EvaluationScreenState extends State<EvaluationScreen>
   double get _overallPercentage =>
       _overallMax == 0 ? 0 : (_overallScore / _overallMax) * 100;
 
-  String get _ratingLabel {
+  String get _ratingKey {
     final double pct = _overallPercentage;
-    if (pct >= 90) return 'Exceptional';
-    if (pct >= 75) return 'Very Good';
-    if (pct >= 60) return 'Good';
-    if (pct >= 40) return 'Average';
-    return 'Needs Improvement';
+    if (pct >= 90) return 'exceptional';
+    if (pct >= 75) return 'very_good';
+    if (pct >= 60) return 'good';
+    if (pct >= 40) return 'average';
+    return 'needs_improvement';
   }
 
   Color _ratingColor(ColorScheme colorScheme) {
@@ -243,7 +244,11 @@ class _EvaluationScreenState extends State<EvaluationScreen>
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(content: Text('Evaluation saved successfully')),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).evaluationSaved,
+            ),
+          ),
         );
 
       Navigator.pop(context, savedEvaluation);
@@ -261,7 +266,11 @@ class _EvaluationScreenState extends State<EvaluationScreen>
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(content: Text('Unable to save evaluation: $error')),
+          SnackBar(
+            content: Text(
+              '${AppLocalizations.of(context).unableSaveEvaluation}: $error',
+            ),
+          ),
         );
     } finally {
       if (mounted) {
@@ -273,6 +282,8 @@ class _EvaluationScreenState extends State<EvaluationScreen>
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final AppLocalizations localizations =
+    AppLocalizations.of(context);
     final Size size = MediaQuery.sizeOf(context);
     final bool isTablet = size.shortestSide >= 600;
     final double horizontalPadding = isTablet ? 32 : 20;
@@ -285,7 +296,7 @@ class _EvaluationScreenState extends State<EvaluationScreen>
         scrolledUnderElevation: 0,
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        title: const Text('Player Evaluation'),
+        title: Text(localizations.playerEvaluation),
       ),
       body: SafeArea(
         child: FadeTransition(
@@ -310,8 +321,7 @@ class _EvaluationScreenState extends State<EvaluationScreen>
                           index: 0,
                           child: _CategoryCard(
                             icon: Icons.sports_soccer_rounded,
-                            titleAr: 'الفني والمهاري',
-                            titleEn: 'Technical & Skills',
+                            title: localizations.technicalSkills,
                             fields: _technicalFields,
                             perFieldMax: 5,
                             values: _technical,
@@ -326,8 +336,7 @@ class _EvaluationScreenState extends State<EvaluationScreen>
                           index: 1,
                           child: _CategoryCard(
                             icon: Icons.fitness_center_rounded,
-                            titleAr: 'البدني',
-                            titleEn: 'Physical',
+                            title: localizations.physical,
                             fields: _physicalFields,
                             perFieldMax: 5,
                             values: _physical,
@@ -342,8 +351,7 @@ class _EvaluationScreenState extends State<EvaluationScreen>
                           index: 2,
                           child: _CategoryCard(
                             icon: Icons.psychology_alt_rounded,
-                            titleAr: 'الخططي',
-                            titleEn: 'Tactical',
+                            title: localizations.tactical,
                             fields: _tacticalFields,
                             perFieldMax: 10,
                             values: _tactical,
@@ -358,8 +366,7 @@ class _EvaluationScreenState extends State<EvaluationScreen>
                           index: 3,
                           child: _CategoryCard(
                             icon: Icons.self_improvement_rounded,
-                            titleAr: 'الأداء النفسي',
-                            titleEn: 'Psychological Performance',
+                            title: localizations.psychologicalPerformance,
                             fields: _psychologicalFields,
                             perFieldMax: 5,
                             values: _psychological,
@@ -374,8 +381,7 @@ class _EvaluationScreenState extends State<EvaluationScreen>
                           index: 4,
                           child: _CategoryCard(
                             icon: Icons.emoji_events_rounded,
-                            titleAr: 'السمات الشخصية',
-                            titleEn: 'Personal Traits',
+                            title: localizations.personalTraits,
                             fields: _personalFields,
                             perFieldMax: 5,
                             values: _personal,
@@ -390,8 +396,7 @@ class _EvaluationScreenState extends State<EvaluationScreen>
                           index: 5,
                           child: _CategoryCard(
                             icon: Icons.rule_rounded,
-                            titleAr: 'القواعد التنظيمية',
-                            titleEn: 'Discipline & Rules',
+                            title: localizations.disciplineRules,
                             fields: _disciplineFields,
                             perFieldMax: 5,
                             values: _discipline,
@@ -437,7 +442,8 @@ class _EvaluationScreenState extends State<EvaluationScreen>
                             overallScore: _overallScore,
                             overallMax: _overallMax,
                             overallPercentage: _overallPercentage,
-                            ratingLabel: _ratingLabel,
+                            ratingLabel:
+                            localizations.ratingLabel(_ratingKey),
                             ratingColor: _ratingColor(theme.colorScheme),
                           ),
                         ),
@@ -465,10 +471,9 @@ class _EvaluationScreenState extends State<EvaluationScreen>
 // ---------------------------------------------------------------------------
 
 class _ScoreField {
-  const _ScoreField(this.id, this.label);
+  const _ScoreField(this.id);
 
   final String id;
-  final String label;
 }
 
 // ---------------------------------------------------------------------------
@@ -606,7 +611,7 @@ class _EvalHeaderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${player.code} • $groupText • $ageText yrs',
+                  '${player.code} • $groupText • ${AppLocalizations.of(context).ageYears(ageText)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -626,18 +631,6 @@ class _HeaderStatusBadge extends StatelessWidget {
   const _HeaderStatusBadge({required this.status});
 
   final String status;
-
-  String _label() {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 'Active';
-      case 'injured':
-        return 'Injured';
-      case 'inactive':
-      default:
-        return 'Inactive';
-    }
-  }
 
   Color _color(ColorScheme colorScheme) {
     switch (status.toLowerCase()) {
@@ -664,7 +657,7 @@ class _HeaderStatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        _label(),
+        AppLocalizations.of(context).statusLabel(status),
         style: theme.textTheme.labelSmall?.copyWith(
           color: color,
           fontWeight: FontWeight.w700,
@@ -683,8 +676,7 @@ class _HeaderStatusBadge extends StatelessWidget {
 class _CategoryCard extends StatelessWidget {
   const _CategoryCard({
     required this.icon,
-    required this.titleAr,
-    required this.titleEn,
+    required this.title,
     required this.fields,
     required this.perFieldMax,
     required this.values,
@@ -694,8 +686,7 @@ class _CategoryCard extends StatelessWidget {
   });
 
   final IconData icon;
-  final String titleAr;
-  final String titleEn;
+  final String title;
   final List<_ScoreField> fields;
   final int perFieldMax;
   final Map<String, int> values;
@@ -738,22 +729,11 @@ class _CategoryCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      titleAr,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      titleEn,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               _SubtotalBadge(value: subtotal, max: max),
@@ -762,7 +742,8 @@ class _CategoryCard extends StatelessWidget {
           const SizedBox(height: 14),
           for (int i = 0; i < fields.length; i++) ...<Widget>[
             _ScoreStepperRow(
-              label: fields[i].label,
+              label: AppLocalizations.of(context)
+                  .scoreField(fields[i].id),
               value: values[fields[i].id] ?? 0,
               max: perFieldMax,
               onChanged: (int v) => onChanged(fields[i].id, v),
@@ -944,22 +925,12 @@ class _PressureCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'الأداء تحت ضغط المنافس',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      'Performance Under Match Pressure',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  AppLocalizations.of(context)
+                      .performanceUnderMatchPressure,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               _SubtotalBadge(value: value, max: max),
@@ -1050,7 +1021,7 @@ class _NotesCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                'Coach Notes',
+                AppLocalizations.of(context).coachNotes,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -1064,7 +1035,7 @@ class _NotesCard extends StatelessWidget {
             maxLines: 8,
             style: theme.textTheme.bodyMedium,
             decoration: InputDecoration(
-              hintText: 'Write notes about this evaluation...',
+              hintText: AppLocalizations.of(context).notesHint,
               filled: true,
               fillColor: colorScheme.surface,
               contentPadding: const EdgeInsets.all(14),
@@ -1140,17 +1111,38 @@ class _SummaryCard extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final ColorScheme colorScheme = theme.colorScheme;
 
+    final AppLocalizations localizations =
+    AppLocalizations.of(context);
+
     final List<MapEntry<String, String>> chips = <MapEntry<String, String>>[
-      MapEntry<String, String>('Technical', '$technical/$maxTechnical'),
-      MapEntry<String, String>('Physical', '$physical/$maxPhysical'),
-      MapEntry<String, String>('Tactical', '$tactical/$maxTactical'),
       MapEntry<String, String>(
-        'Psychological',
+        localizations.categoryLabel('technical'),
+        '$technical/$maxTechnical',
+      ),
+      MapEntry<String, String>(
+        localizations.categoryLabel('physical'),
+        '$physical/$maxPhysical',
+      ),
+      MapEntry<String, String>(
+        localizations.categoryLabel('tactical'),
+        '$tactical/$maxTactical',
+      ),
+      MapEntry<String, String>(
+        localizations.categoryLabel('psychological'),
         '$psychological/$maxPsychological',
       ),
-      MapEntry<String, String>('Personal', '$personal/$maxPersonal'),
-      MapEntry<String, String>('Discipline', '$discipline/$maxDiscipline'),
-      MapEntry<String, String>('Pressure', '$pressure/$maxPressure'),
+      MapEntry<String, String>(
+        localizations.categoryLabel('personal'),
+        '$personal/$maxPersonal',
+      ),
+      MapEntry<String, String>(
+        localizations.categoryLabel('discipline'),
+        '$discipline/$maxDiscipline',
+      ),
+      MapEntry<String, String>(
+        localizations.categoryLabel('pressure'),
+        '$pressure/$maxPressure',
+      ),
     ];
 
     return Container(
@@ -1181,7 +1173,7 @@ class _SummaryCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                'Evaluation Summary',
+                AppLocalizations.of(context).evaluationSummary,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -1354,7 +1346,11 @@ class _SaveBar extends StatelessWidget {
                     ),
                   )
                       : const Icon(Icons.save_rounded, size: 18),
-                  label: Text(isSaving ? 'Saving...' : 'Save Evaluation'),
+                  label: Text(
+                    isSaving
+                        ? AppLocalizations.of(context).saving
+                        : AppLocalizations.of(context).saveEvaluation,
+                  ),
                 ),
               ),
             ),

@@ -12,6 +12,7 @@ class UserSettingsModel {
   final DateTime? updatedAt;
 
   bool get isDarkMode => themeMode == 'dark';
+  bool get isArabic => languageCode == 'ar';
 
   factory UserSettingsModel.fromJson(
       Map<String, dynamic> json,
@@ -20,16 +21,17 @@ class UserSettingsModel {
         json['theme_mode']?.toString().trim().toLowerCase() ??
             'light';
 
+    final String rawLanguage =
+        json['language_code']?.toString().trim().toLowerCase() ??
+            'en';
+
     return UserSettingsModel(
       userId: int.tryParse(
         json['user_id']?.toString() ?? '',
       ) ??
           0,
       themeMode: rawTheme == 'dark' ? 'dark' : 'light',
-      languageCode:
-      json['language_code']?.toString().trim().isNotEmpty == true
-          ? json['language_code'].toString().trim()
-          : 'en',
+      languageCode: rawLanguage == 'ar' ? 'ar' : 'en',
       updatedAt: DateTime.tryParse(
         json['updated_at']?.toString() ?? '',
       ),

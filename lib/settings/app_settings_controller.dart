@@ -11,17 +11,20 @@ class AppSettingsController extends ChangeNotifier {
   final UserSettingsRepository repository;
 
   ThemeMode _themeMode = ThemeMode.light;
+  Locale _locale = const Locale('en');
   bool _isLoading = false;
   bool _isSaving = false;
   bool _hasLoadedCurrentUser = false;
   String? _errorMessage;
 
   ThemeMode get themeMode => _themeMode;
+  Locale get locale => _locale;
+  String get languageCode => _locale.languageCode;
   bool get isDarkMode => _themeMode == ThemeMode.dark;
+  bool get isArabic => languageCode == 'ar';
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
-  bool get hasLoadedCurrentUser =>
-      _hasLoadedCurrentUser;
+  bool get hasLoadedCurrentUser => _hasLoadedCurrentUser;
   String? get errorMessage => _errorMessage;
 
   Future<void> loadCurrentUserSettings({
@@ -43,17 +46,13 @@ class AppSettingsController extends ChangeNotifier {
       final UserSettingsModel settings =
       await repository.getSettings();
 
-      _themeMode = settings.isDarkMode
-          ? ThemeMode.dark
-          : ThemeMode.light;
-
+      _applySettings(settings);
       _hasLoadedCurrentUser = true;
     } on UserSettingsException catch (error) {
       _errorMessage = error.message;
       rethrow;
     } catch (_) {
-      _errorMessage =
-      'Unable to load your appearance settings.';
+      _errorMessage = 'Unable to load your application settings.';
       rethrow;
     } finally {
       _isLoading = false;
@@ -68,10 +67,7 @@ class AppSettingsController extends ChangeNotifier {
 
     final ThemeMode previousMode = _themeMode;
 
-    _themeMode = enabled
-        ? ThemeMode.dark
-        : ThemeMode.light;
-
+    _themeMode = enabled ? ThemeMode.dark : ThemeMode.light;
     _isSaving = true;
     _errorMessage = null;
     notifyListeners();
@@ -82,10 +78,7 @@ class AppSettingsController extends ChangeNotifier {
         darkMode: enabled,
       );
 
-      _themeMode = savedSettings.isDarkMode
-          ? ThemeMode.dark
-          : ThemeMode.light;
-
+      _applySettings(savedSettings);
       _hasLoadedCurrentUser = true;
     } on UserSettingsException catch (error) {
       _themeMode = previousMode;
@@ -93,8 +86,7 @@ class AppSettingsController extends ChangeNotifier {
       rethrow;
     } catch (_) {
       _themeMode = previousMode;
-      _errorMessage =
-      'Unable to save the appearance setting.';
+      _errorMessage = 'Unable to save the appearance setting.';
       rethrow;
     } finally {
       _isSaving = false;
@@ -102,8 +94,57 @@ class AppSettingsController extends ChangeNotifier {
     }
   }
 
+  Future<void> setLanguageCode(String value) async {
+    final String normalized = value.trim().toLowerCase();
+
+    if (normalized != 'en' && normalized != 'ar') {
+      throw const UserSettingsException(
+        'The selected language is not supported.',
+      );
+    }
+
+    if (_isSaving || normalized == languageCode) {
+      return;
+    }
+
+    final Locale previousLocale = _locale;
+
+    _locale = Locale(normalized);
+    _isSaving = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final UserSettingsModel savedSettings =
+      await repository.updateLanguageCode(
+        languageCode: normalized,
+      );
+
+      _applySettings(savedSettings);
+      _hasLoadedCurrentUser = true;
+    } on UserSettingsException catch (error) {
+      _locale = previousLocale;
+      _errorMessage = error.message;
+      rethrow;
+    } catch (_) {
+      _locale = previousLocale;
+      _errorMessage = 'Unable to save the language setting.';
+      rethrow;
+    } finally {
+      _isSaving = false;
+      notifyListeners();
+    }
+  }
+
+  void _applySettings(UserSettingsModel settings) {
+    _themeMode =
+    settings.isDarkMode ? ThemeMode.dark : ThemeMode.light;
+    _locale = Locale(settings.isArabic ? 'ar' : 'en');
+  }
+
   void resetForLogout() {
     _themeMode = ThemeMode.light;
+    _locale = const Locale('en');
     _isLoading = false;
     _isSaving = false;
     _hasLoadedCurrentUser = false;

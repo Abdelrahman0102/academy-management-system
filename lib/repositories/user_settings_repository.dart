@@ -52,7 +52,32 @@ class UserSettingsRepository {
 
   Future<UserSettingsModel> updateThemeMode({
     required bool darkMode,
-  }) async {
+  }) {
+    return _updateSettings(<String, String>{
+      'theme_mode': darkMode ? 'dark' : 'light',
+    });
+  }
+
+  Future<UserSettingsModel> updateLanguageCode({
+    required String languageCode,
+  }) {
+    final String normalized =
+    languageCode.trim().toLowerCase();
+
+    if (normalized != 'en' && normalized != 'ar') {
+      throw const UserSettingsException(
+        'The selected language is not supported.',
+      );
+    }
+
+    return _updateSettings(<String, String>{
+      'language_code': normalized,
+    });
+  }
+
+  Future<UserSettingsModel> _updateSettings(
+      Map<String, String> changes,
+      ) async {
     final Map<String, String> authHeaders =
     await headersProvider();
 
@@ -63,9 +88,7 @@ class UserSettingsRepository {
         'Content-Type': 'application/json',
         ...authHeaders,
       },
-      body: jsonEncode(<String, String>{
-        'theme_mode': darkMode ? 'dark' : 'light',
-      }),
+      body: jsonEncode(changes),
     );
 
     final Map<String, dynamic> body =
@@ -120,9 +143,8 @@ class UserSettingsRepository {
   Map<String, dynamic> _extractData(
       Map<String, dynamic> body,
       ) {
-    dynamic value = body['data'] ??
-        body['result'] ??
-        body['payload'];
+    dynamic value =
+        body['data'] ?? body['result'] ?? body['payload'];
 
     while (value is Map) {
       final Map<String, dynamic> map =
