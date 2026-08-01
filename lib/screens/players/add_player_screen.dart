@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '/models/group.dart';
 import '/models/player.dart';
 import '/repositories/player_repository.dart';
 
@@ -36,14 +37,24 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
   final TextEditingController _medicalNotesController = TextEditingController();
   final TextEditingController _parentNameController = TextEditingController();
   final TextEditingController _parentPhoneController = TextEditingController();
-  final TextEditingController _groupController = TextEditingController();
-  final TextEditingController _scheduleController = TextEditingController();
 
   String _selectedGender = 'Male';
   String _selectedStatus = 'active';
   String _selectedRelationship = 'Father';
+
+  List<TrainingGroupModel> _groups = <TrainingGroupModel>[];
+  int? _selectedGroupId;
+  bool _isLoadingGroups = true;
+  String? _groupsError;
+
   bool _isSubmitting = false;
 
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGroups();
+  }
 
   @override
   void dispose() {
@@ -53,8 +64,6 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
     _medicalNotesController.dispose();
     _parentNameController.dispose();
     _parentPhoneController.dispose();
-    _groupController.dispose();
-    _scheduleController.dispose();
     super.dispose();
   }
 
@@ -75,6 +84,69 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
     }
 
     return null;
+  }
+
+  Future<void> _loadGroups() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingGroups = true;
+        _groupsError = null;
+      });
+    }
+
+    try {
+      final List<TrainingGroupModel> groups =
+      await widget.repository.getGroups();
+
+      debugPrint('GROUPS COUNT: ${groups.length}');
+
+      for (final TrainingGroupModel group in groups) {
+        debugPrint(
+          'GROUP: id=${group.id}, '
+              'name=${group.name}, '
+              'coach=${group.coachName}, '
+              'players=${group.playersCount}, '
+              'max=${group.maxPlayers}, '
+              'available=${group.availablePlaces}, '
+              'isFull=${group.isFull}',
+        );
+      }
+
+      if (!mounted) return;
+
+      final bool selectedStillExists =
+          _selectedGroupId != null &&
+              groups.any(
+                    (TrainingGroupModel group) =>
+                group.id == _selectedGroupId,
+              );
+
+      setState(() {
+        _groups = groups;
+
+        _selectedGroupId =
+        selectedStillExists
+            ? _selectedGroupId
+            : null;
+
+        _isLoadingGroups = false;
+      });
+    } on PlayerRepositoryException catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingGroups = false;
+        _groupsError = error.message;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingGroups = false;
+        _groupsError =
+        'Unable to load training groups: $error';
+      });
+    }
   }
 
   Future<void> _pickPhoto() async {
@@ -139,8 +211,7 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
         birthDate: _birthDateController.text,
         gender: _selectedGender,
         status: _selectedStatus,
-        groupName: _groupController.text,
-        schedule: _scheduleController.text,
+        groupId: _selectedGroupId,
         parentName: _parentNameController.text,
         parentPhone: _parentPhoneController.text,
         relationship: _selectedRelationship,
@@ -338,40 +409,18 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
                             _LabeledField(
                               label: 'Training Group',
                               isRequired: true,
-                              child: TextFormField(
-                                controller: _groupController,
-                                textCapitalization: TextCapitalization.words,
-                                textInputAction: TextInputAction.next,
-                                inputFormatters: <TextInputFormatter>[
-                                  LengthLimitingTextInputFormatter(100),
-                                ],
-                                decoration: const InputDecoration(
-                                  hintText: 'Enter training group',
-                                ),
-                                validator: (String? value) =>
-                                    _validateRequired(value, 'Training group'),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _LabeledField(
-                              label: 'Training Schedule',
-                              isRequired: true,
-                              child: TextFormField(
-                                controller: _scheduleController,
-                                textCapitalization: TextCapitalization.sentences,
-                                textInputAction: TextInputAction.next,
-                                inputFormatters: <TextInputFormatter>[
-                                  LengthLimitingTextInputFormatter(255),
-                                ],
-                                decoration: const InputDecoration(
-                                  hintText:
-                                  'Example: Sat / Mon / Wed - 5:00 PM',
-                                ),
-                                validator: (String? value) =>
-                                    _validateRequired(
-                                      value,
-                                      'Training schedule',
-                                    ),
+                              child: _GroupSelectionField(
+                                groups: _groups,
+                                selectedGroupId: _selectedGroupId,
+                                isLoading: _isLoadingGroups,
+                                errorMessage: _groupsError,
+                                enabled: !_isSubmitting,
+                                onRetry: _loadGroups,
+                                onChanged: (int? groupId) {
+                                  setState(() {
+                                    _selectedGroupId = groupId;
+                                  });
+                                },
                               ),
                             ),
                           ],
@@ -461,6 +510,304 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
         ),
       ),
     );
+  }
+}
+
+class _GroupSelectionField extends StatelessWidget {
+  const _GroupSelectionField({
+    required this.groups,
+    required this.selectedGroupId,
+    required this.isLoading,
+    required this.errorMessage,
+    required this.enabled,
+    required this.onRetry,
+    required this.onChanged,
+  });
+
+  final List<TrainingGroupModel> groups;
+  final int? selectedGroupId;
+  final bool isLoading;
+  final String? errorMessage;
+  final bool enabled;
+  final Future<void> Function() onRetry;
+  final ValueChanged<int?> onChanged;
+
+  TrainingGroupModel? get _selectedGroup {
+    for (final TrainingGroupModel group in groups) {
+      if (group.id == selectedGroupId) {
+        return group;
+      }
+    }
+
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    if (isLoading) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest
+              .withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: colorScheme.outlineVariant,
+          ),
+        ),
+        child: const Row(
+          children: <Widget>[
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text('Loading available groups...'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: colorScheme.errorContainer,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(
+              Icons.error_outline_rounded,
+              color: colorScheme.onErrorContainer,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                errorMessage!,
+                style: TextStyle(
+                  color: colorScheme.onErrorContainer,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: onRetry,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (groups.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: colorScheme.secondaryContainer,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(
+              Icons.groups_rounded,
+              color: colorScheme.onSecondaryContainer,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'No groups with available places were found. '
+                    'Create a group or increase its capacity first.',
+                style: TextStyle(
+                  color: colorScheme.onSecondaryContainer,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Reload groups',
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final TrainingGroupModel? selected = _selectedGroup;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        DropdownButtonFormField<int>(
+          value: selectedGroupId,
+          isExpanded: true,
+          menuMaxHeight: 380,
+          decoration: const InputDecoration(
+            hintText: 'Choose a training group',
+            prefixIcon: Icon(Icons.groups_rounded),
+          ),
+          items: groups
+              .map(
+                (TrainingGroupModel group) =>
+                DropdownMenuItem<int>(
+                  value: group.id,
+                  child: Text(
+                    _optionLabel(group),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+          )
+              .toList(growable: false),
+          onChanged: enabled ? onChanged : null,
+          validator: (int? value) {
+            if (value == null) {
+              return 'Training group is required';
+            }
+
+            return null;
+          },
+        ),
+        if (selected != null) ...<Widget>[
+          const SizedBox(height: 12),
+          _SelectedGroupDetails(group: selected),
+        ],
+      ],
+    );
+  }
+
+  static String _optionLabel(
+      TrainingGroupModel group,
+      ) {
+    final String level = group.level?.trim() ?? '';
+
+    if (level.isEmpty) {
+      return group.name;
+    }
+
+    return '${group.name} — $level';
+  }
+}
+
+class _SelectedGroupDetails extends StatelessWidget {
+  const _SelectedGroupDetails({
+    required this.group,
+  });
+
+  final TrainingGroupModel group;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    final String schedule = _scheduleText(group);
+    final String capacity = group.maxPlayers == null
+        ? '${group.safePlayersCount} players'
+        : '${group.safePlayersCount} / '
+        '${group.maxPlayers} players';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.22),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(
+                Icons.sports_rounded,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  group.coachName ?? 'Coach not available',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Icon(
+                Icons.schedule_rounded,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  schedule,
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Row(
+            children: <Widget>[
+              Icon(
+                Icons.people_alt_rounded,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  group.availablePlaces == null
+                      ? capacity
+                      : '$capacity • '
+                      '${group.availablePlaces} places available',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _scheduleText(
+      TrainingGroupModel group,
+      ) {
+    if (group.schedules.isNotEmpty) {
+      return group.schedules
+          .map(
+            (GroupScheduleModel schedule) =>
+        schedule.displayLabel,
+      )
+          .join(' / ');
+    }
+
+    final String legacy = group.schedule?.trim() ?? '';
+
+    return legacy.isEmpty
+        ? 'No schedule available'
+        : legacy;
   }
 }
 
